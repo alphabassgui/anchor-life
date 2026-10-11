@@ -1,15 +1,95 @@
 @import "tailwindcss";
 
+/*
+ * Anchor Life — Design System Tokens (TASK-002)
+ * Source of truth: .docs/05_DESIGN_SYSTEM.md §1.1 (color) & §1.2 (typography).
+ * Tailwind v4 maps these `--color-*` / `--font-*` theme vars to utilities,
+ * e.g. `bg-brand-primary`, `text-status-naira`, `font-display`, `font-mono`.
+ */
+@theme {
+  /* Institutional Brand */
+  --color-brand-primary: #0f172a; /* Deep Anchor Navy */
+  --color-brand-secondary: #1e293b; /* Card surfaces / elevated containers */
+  --color-brand-accent: #eab308; /* Anchor University Gold */
+  --color-brand-accent-hover: #ca8a04; /* Pressed gold state */
+  --color-brand-surface: #f8fafc; /* Crisp light card background */
+  --color-brand-subtle: #e2e8f0; /* Borders, dividers, inactive tabs */
+
+  /* 6 Biological Need Indicators (9-stat / 6-need model — do not collapse) */
+  --color-meter-hunger: #f97316; /* Vibrant Orange (Jollof / Food) */
+  --color-meter-energy: #3b82f6; /* Electric Blue (Rest / Battery) */
+  --color-meter-hygiene: #06b6d4; /* Fresh Cyan (Water / Cleanliness) */
+  --color-meter-bladder: #a855f7; /* Soft Purple (Restroom urgency) */
+  --color-meter-fun: #ec4899; /* Bubblegum Pink (Sports / Entertainment) */
+  --color-meter-social: #10b981; /* Emerald Green (Peer interactions) */
+
+  /* Campus Status & Disciplinary */
+  --color-status-cgpa: #6366f1; /* Academic Indigo */
+  --color-status-devotion: #059669; /* Chapel Pine Green */
+  --color-status-heat: #dc2626; /* SDC Threat Crimson */
+  --color-status-naira: #10b981; /* Nigerian Naira Emerald */
+
+  /* Avatar Hex Tinting Swatches (runtime MeshStandardMaterial tints) */
+  --color-avatar-skin-1: #3d2314;
+  --color-avatar-skin-2: #593110;
+  --color-avatar-skin-3: #8d5524;
+  --color-avatar-skin-4: #c68a62;
+  --color-avatar-skin-5: #e0ac69;
+  --color-avatar-skin-6: #f1c27d;
+
+  --color-avatar-hair-1: #0f0f10;
+  --color-avatar-hair-2: #1c1917;
+  --color-avatar-hair-3: #292524;
+  --color-avatar-hair-4: #78350f;
+  --color-avatar-hair-5: #9a3412;
+  --color-avatar-hair-6: #d97706;
+
+  --color-avatar-clothing-1: #ffffff;
+  --color-avatar-clothing-2: #0f172a;
+  --color-avatar-clothing-3: #1e3a8a;
+  --color-avatar-clothing-4: #dc2626;
+  --color-avatar-clothing-5: #15803d;
+  --color-avatar-clothing-6: #ca8a04;
+}
+
+/*
+ * Font families (§1.2). The next/font loaders in app/layout.tsx expose
+ * --font-plus-jakarta-sans and --font-jetbrains-mono; `inline` keeps these as
+ * live var references. `font-sans` defaults to the display face so body copy
+ * uses Plus Jakarta Sans; `font-mono` is JetBrains Mono for ledgers/clocks.
+ */
+@theme inline {
+  --font-display: var(--font-plus-jakarta-sans), "Plus Jakarta Sans",
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace,
+    SFMono-Regular, Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+/*
+ * Pointer-events conventions (TASK-002 / invariant: DOM Layering & Touch
+ * Isolation). The overlay root passes touches through to the Three.js canvas;
+ * interactive HUD/modals/dock explicitly re-enable them.
+ */
+@utility overlay-container {
+  pointer-events: none;
+}
+
+@utility overlay-interactive {
+  pointer-events: auto;
+}
+
+/* JetBrains Mono carries tabular figures so ledgers/clocks don't shift (§1.2). */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +102,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-display);
 }

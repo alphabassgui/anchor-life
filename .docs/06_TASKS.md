@@ -33,10 +33,10 @@
 * **Target Files:** `package.json`, `tsconfig.json`, `next.config.ts`, `.env.example`
 * **Dependencies:** None
 * **Action Items:**
-  * [ ] Initialize Next.js 15 with App Router and TypeScript.
-  * [ ] Install production dependencies: `three`, `@types/three`, `zustand`, `@supabase/supabase-js`, `@supabase/ssr`, `@upstash/redis`, `clsx`, `tailwind-merge`, `lucide-react`, `canvas-confetti`.
-  * [ ] Install dev dependencies: `tailwindcss`, `@tailwindcss/postcss`, `postcss`, `prettier`, `eslint`.
-  * [ ] Configure `.env.example` with Supabase URL, Anon Key, Service Role Key, and Upstash Redis REST credentials.
+  * [x] Initialize Next.js 15 with App Router and TypeScript.
+  * [x] Install production dependencies: `three`, `@types/three`, `zustand`, `@supabase/supabase-js`, `@supabase/ssr`, `@upstash/redis`, `clsx`, `tailwind-merge`, `lucide-react`, `canvas-confetti`.
+  * [x] Install dev dependencies: `tailwindcss`, `@tailwindcss/postcss`, `postcss`, `prettier`, `eslint`.
+  * [x] Configure `.env.example` with Supabase URL, Anon Key, Service Role Key, and Upstash Redis REST credentials.
 * **Acceptance Criteria:** `npm run dev` starts cleanly on port 3000 without build warnings.
 
 ---
@@ -46,9 +46,9 @@
 * **Target Files:** `app/globals.css`, `tailwind.config.ts`, `lib/utils.ts`
 * **Dependencies:** TASK-001
 * **Action Items:**
-  * [ ] Add semantic color tokens from `.docs/05_DESIGN_SYSTEM.md` (`brand`, `meter`, `status`, `avatar`).
-  * [ ] Configure font families for `Plus Jakarta Sans` and `JetBrains Mono` with tabular numbers.
-  * [ ] Add utilities for non-interactive UI containers (`pointer-events-none`) and interactable buttons (`pointer-events-auto`).
+  * [x] Add semantic color tokens from `.docs/05_DESIGN_SYSTEM.md` (`brand`, `meter`, `status`, `avatar`).
+  * [x] Configure font families for `Plus Jakarta Sans` and `JetBrains Mono` with tabular numbers.
+  * [x] Add utilities for non-interactive UI containers (`pointer-events-none`) and interactable buttons (`pointer-events-auto`).
 * **Acceptance Criteria:** Custom color classes like `bg-brand-primary` and `text-status-naira` render correctly.
 
 ---

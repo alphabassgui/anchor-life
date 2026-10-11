@@ -73,9 +73,9 @@
 * **Target Files:** `lib/supabase/client.ts`, `lib/supabase/server.ts`, `lib/supabase/middleware.ts`, `middleware.ts`
 * **Dependencies:** TASK-101
 * **Action Items:**
-  * [ ] Create browser client factory using `createBrowserClient`.
-  * [ ] Create server client factory using `createServerClient` with cookie store handling.
-  * [ ] Implement Next.js middleware to refresh expired auth session tokens.
+  * [x] Create browser client factory using `createBrowserClient`.
+  * [x] Create server client factory using `createServerClient` with cookie store handling.
+  * [x] Implement Next.js middleware to refresh expired auth session tokens.
 * **Acceptance Criteria:** Unauthenticated requests to protected API endpoints return HTTP 401.
 
 ---

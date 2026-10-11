@@ -60,11 +60,11 @@
 * **Target Files:** `supabase/migrations/20261010000000_initial_schema.sql`, `supabase/config.toml`
 * **Dependencies:** TASK-001
 * **Action Items:**
-  * [ ] Run migration script containing all enums (`student_archetype`, `hostel_id`, `offense_type`).
-  * [ ] Verify tables: `students`, `student_simulation_states`, `campus_venues`, `venue_presence`, `item_catalog`, `student_items`, `pvp_theft_logs`, `student_inbox`, `disciplinary_encounters`, `sdc_tribunal_hearings`, `financial_ledger`, `campus_global_policies`.
-  * [ ] Confirm triggers: `trg_auto_lift_suspension`.
-  * [ ] Confirm Row-Level Security (RLS) policies are active for profiles, state, and private inboxes.
-* **Acceptance Criteria:** All 12 tables and seed data exist in Supabase Studio with RLS enabled.
+  * [x] Run migration script containing all enums (`student_archetype`, `hostel_id`, `offense_type`).
+  * [x] Verify tables: `students`, `student_simulation_states`, `campus_venues`, `venue_presence`, `item_catalog`, `student_items`, `pvp_theft_logs`, `student_inbox`, `disciplinary_encounters`, `sdc_tribunal_hearings`, `financial_ledger`, `campus_global_policies`.
+  * [x] Confirm triggers: `trg_auto_lift_suspension`.
+  * [x] Confirm Row-Level Security (RLS) policies are active for profiles, state, and private inboxes.
+* **Acceptance Criteria:** All 11 tables and seed data exist in Supabase Studio with RLS enabled.
 
 ---
 

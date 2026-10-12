@@ -16,6 +16,7 @@ export interface OnboardingData {
   isAdult: boolean;
   gender: "male" | "female";
   personalityTraits: string[]; // exactly 2 trait IDs (see lib/constants/personality.ts)
+  dream: string; // exactly 1 dream ID (see lib/constants/dreams.ts)
 }
 
 interface OnboardingStore extends OnboardingData {
@@ -34,6 +35,7 @@ const INITIAL_DATA: OnboardingData = {
   isAdult: false,
   gender: "male",
   personalityTraits: [],
+  dream: "",
 };
 
 export const useOnboardingStore = create<OnboardingStore>()((set) => ({

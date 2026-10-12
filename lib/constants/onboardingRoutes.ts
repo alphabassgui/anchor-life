@@ -12,4 +12,5 @@ export const ONBOARDING_ROUTES = {
   look: "/onboarding/look",
   personality: "/onboarding/personality",
   dream: "/onboarding/dream",
+  archetype: "/onboarding/archetype", // next step after dream — not built yet
 } as const;

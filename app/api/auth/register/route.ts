@@ -6,6 +6,17 @@ type Archetype = "nepo_baby" | "campus_hustler";
 type Gender = "male" | "female";
 type HostelId = "peace_hostel" | "purity_hostel" | "patience_hostel";
 
+/** Academic faculties (PRD §2.1); department is a free-text VARCHAR(64) in the schema. */
+const DEPARTMENTS = [
+  "Faculty of Science & Computing",
+  "Faculty of Humanities",
+  "Faculty of Social & Management Sciences",
+] as const;
+type Department = (typeof DEPARTMENTS)[number];
+
+// Handle rule per 04_API_CONTRACT.md: lowercase alphanumeric, 3–20 chars.
+const HANDLE_REGEX = /^[a-z0-9]{3,20}$/;
+
 /** Schema-backed starting cash by archetype (wallet_balance). */
 const STARTING_CASH: Record<Archetype, number> = {
   nepo_baby: 150_000,
@@ -29,7 +40,7 @@ interface StudentInsert {
   assigned_hostel: HostelId;
   archetype: Archetype;
   wallet_balance: number;
-  department?: string;
+  department: Department;
   appearance?: Record<string, unknown>;
 }
 
@@ -80,6 +91,7 @@ export async function POST(request: Request): Promise<Response> {
   const archetype = asString(body.archetype);
   const gender = asString(body.gender);
   const assignedHostel = asString(body.assignedHostel);
+  const department = asString(body.department)?.trim();
 
   if (!email || !EMAIL_REGEX.test(email)) {
     return errorResponse(400, "INVALID_EMAIL", "A valid email address is required.");
@@ -93,16 +105,20 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (!matricNumber || !isValidMatric(matricNumber)) {
     return errorResponse(
-      400,
-      "INVALID_MATRIC",
+      422,
+      "INVALID_MATRIC_FORMAT",
       "Matric number must match the format AUL/XXX/00/000.",
     );
   }
   if (!fullName || fullName.length > 96) {
     return errorResponse(400, "INVALID_FULL_NAME", "Full name is required (max 96 characters).");
   }
-  if (!handle || handle.length > 32) {
-    return errorResponse(400, "INVALID_HANDLE", "Handle is required (max 32 characters).");
+  if (!handle || !HANDLE_REGEX.test(handle)) {
+    return errorResponse(
+      400,
+      "INVALID_HANDLE",
+      "Handle must be 3–20 characters, lowercase letters and numbers only.",
+    );
   }
   if (!archetype || !ARCHETYPES.includes(archetype as Archetype)) {
     return errorResponse(
@@ -117,8 +133,16 @@ export async function POST(request: Request): Promise<Response> {
   if (!assignedHostel || !HOSTELS.includes(assignedHostel as HostelId)) {
     return errorResponse(400, "INVALID_HOSTEL", "A valid hostel assignment is required.");
   }
+  if (!department || !DEPARTMENTS.includes(department as Department)) {
+    return errorResponse(
+      400,
+      "INVALID_DEPARTMENT",
+      "Department must be one of the three faculties: Science & Computing, Humanities, or Social & Management Sciences.",
+    );
+  }
 
   const validArchetype = archetype as Archetype;
+  const validDepartment = department as Department;
   const validGender = gender as Gender;
   const validHostel = assignedHostel as HostelId;
 
@@ -132,7 +156,6 @@ export async function POST(request: Request): Promise<Response> {
 
   // --- Optional fields ---
   const appearance = asRecord(body.appearance) ?? undefined;
-  const department = asString(body.department)?.trim() || undefined;
 
   // --- Supabase service-role client (server-only; bypasses RLS) ---
   const admin = createAdminClient();
@@ -164,7 +187,7 @@ export async function POST(request: Request): Promise<Response> {
     assigned_hostel: validHostel,
     archetype: validArchetype,
     wallet_balance: STARTING_CASH[validArchetype],
-    ...(department ? { department } : {}),
+    department: validDepartment,
     ...(appearance ? { appearance } : {}),
   };
 
@@ -182,11 +205,25 @@ export async function POST(request: Request): Promise<Response> {
     await admin.auth.admin.deleteUser(authUserId);
 
     // Postgres unique_violation (23505) on matric_number or handle (both UNIQUE)
-    // is a client error, not a server fault.
+    // is a client error, not a server fault. Identify which column collided from
+    // the auto-named constraint ("students_<column>_key", in `message`) or the
+    // column token ("(<column>)", in `details`).
     if (studentError?.code === "23505") {
+      const sig = `${studentError.message} ${studentError.details}`;
+      if (sig.includes("students_matric_number_key") || sig.includes("(matric_number)")) {
+        return errorResponse(
+          409,
+          "MATRIC_ALREADY_EXISTS",
+          "That matriculation number is already registered.",
+        );
+      }
+      if (sig.includes("students_handle_key") || sig.includes("(handle)")) {
+        return errorResponse(409, "HANDLE_TAKEN", "That handle is already taken.");
+      }
+      // Could not determine which column collided — do not guess.
       return errorResponse(
         409,
-        "DUPLICATE_REGISTRATION",
+        "CONFLICT",
         "That matric number or handle is already registered.",
       );
     }

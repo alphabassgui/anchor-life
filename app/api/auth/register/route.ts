@@ -6,13 +6,70 @@ type Archetype = "nepo_baby" | "campus_hustler";
 type Gender = "male" | "female";
 type HostelId = "peace_hostel" | "purity_hostel" | "patience_hostel";
 
-/** Academic faculties (PRD §2.1); department is a free-text VARCHAR(64) in the schema. */
-const DEPARTMENTS = [
-  "Faculty of Science & Computing",
-  "Faculty of Humanities",
-  "Faculty of Social & Management Sciences",
-] as const;
-type Department = (typeof DEPARTMENTS)[number];
+/**
+ * Anchor University faculties and their departments. Both `faculty` and
+ * `department` are free-text VARCHAR(64) in the schema (no enum/CHECK); the
+ * faculty<->department relationship is enforced here in the route.
+ */
+type Faculty =
+  | "Faculty of Basic and Allied Medical Sciences"
+  | "Faculty of Education"
+  | "Faculty of Environmental Sciences"
+  | "Faculty of Humanities"
+  | "Faculty of Law"
+  | "Faculty of Science"
+  | "Faculty of Social And Management Science";
+
+const FACULTY_DEPARTMENTS: Record<Faculty, readonly string[]> = {
+  "Faculty of Basic and Allied Medical Sciences": [
+    "Nursing Science",
+    "Medical Laboratory Science",
+    "Public Health",
+  ],
+  "Faculty of Education": [
+    "Mathematics Education",
+    "Biology Education",
+    "Chemistry Education",
+    "Physics Education",
+  ],
+  "Faculty of Environmental Sciences": ["Architecture"],
+  "Faculty of Humanities": [
+    "English and Literary Studies",
+    "French",
+    "History and International Studies",
+    "Christian Religious Studies",
+  ],
+  "Faculty of Law": ["Law (LL.B)"],
+  "Faculty of Science": [
+    "Mathematics",
+    "Computer Science",
+    "Information Technology",
+    "Software Engineering",
+    "Biology",
+    "Microbiology",
+    "Biotechnology",
+    "Biochemistry",
+    "Chemistry",
+    "Industrial Chemistry",
+    "Physics",
+    "Physics with Electronics",
+    "Geology",
+    "Applied Geophysics",
+  ],
+  "Faculty of Social And Management Science": [
+    "Business Administration",
+    "Accounting",
+    "Economics",
+    "Finance",
+    "Political Science",
+    "Mass Communication",
+    "International Relations",
+  ],
+};
+
+function isFaculty(value: string): value is Faculty {
+  return Object.prototype.hasOwnProperty.call(FACULTY_DEPARTMENTS, value);
+}
 
 // Handle rule per 04_API_CONTRACT.md: lowercase alphanumeric, 3–20 chars.
 const HANDLE_REGEX = /^[a-z0-9]{3,20}$/;
@@ -40,7 +97,8 @@ interface StudentInsert {
   assigned_hostel: HostelId;
   archetype: Archetype;
   wallet_balance: number;
-  department: Department;
+  faculty: Faculty;
+  department: string;
   appearance?: Record<string, unknown>;
 }
 
@@ -91,6 +149,7 @@ export async function POST(request: Request): Promise<Response> {
   const archetype = asString(body.archetype);
   const gender = asString(body.gender);
   const assignedHostel = asString(body.assignedHostel);
+  const faculty = asString(body.faculty)?.trim();
   const department = asString(body.department)?.trim();
 
   if (!email || !EMAIL_REGEX.test(email)) {
@@ -133,16 +192,24 @@ export async function POST(request: Request): Promise<Response> {
   if (!assignedHostel || !HOSTELS.includes(assignedHostel as HostelId)) {
     return errorResponse(400, "INVALID_HOSTEL", "A valid hostel assignment is required.");
   }
-  if (!department || !DEPARTMENTS.includes(department as Department)) {
+  if (!faculty || !isFaculty(faculty)) {
+    return errorResponse(
+      400,
+      "INVALID_FACULTY",
+      "Faculty must be one of the recognised Anchor University faculties.",
+    );
+  }
+  if (!department || !FACULTY_DEPARTMENTS[faculty].includes(department)) {
     return errorResponse(
       400,
       "INVALID_DEPARTMENT",
-      "Department must be one of the three faculties: Science & Computing, Humanities, or Social & Management Sciences.",
+      "Department must belong to the selected faculty.",
     );
   }
 
   const validArchetype = archetype as Archetype;
-  const validDepartment = department as Department;
+  const validFaculty = faculty;
+  const validDepartment = department;
   const validGender = gender as Gender;
   const validHostel = assignedHostel as HostelId;
 
@@ -187,6 +254,7 @@ export async function POST(request: Request): Promise<Response> {
     assigned_hostel: validHostel,
     archetype: validArchetype,
     wallet_balance: STARTING_CASH[validArchetype],
+    faculty: validFaculty,
     department: validDepartment,
     ...(appearance ? { appearance } : {}),
   };

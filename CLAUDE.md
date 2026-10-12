@@ -28,9 +28,9 @@ Anchor Life is a mobile-first 2.5D campus simulation game set at Anchor Universi
    - Biological need decay, campus clocks, and avatar animations execute locally on the client device inside Zustand (`lib/store/useGameStore.ts`) on a 5-second tick loop.
    - The server acts strictly as an auditable relational database and transaction post office.
 
-3. **Streamlined 4-Vital System:**
-   - Track exactly 4 core continuous vitals: `hunger`, `energy`, `morale` (Fun + Social combined), and `health` (Hygiene + Vitality combined).
-   - Do NOT implement separate continuous decay timers for hygiene or bladder. Bathrooms and showers are discrete action triggers and debuff clearers.
+3. **9-Stat / 6-Need System:**
+   - Track exactly 6 core continuous needs — `hunger`, `energy`, `hygiene`, `bladder`, `fun`, `social` — plus the three status stats `cgpa`, `devotion`, and `sdc_heat` (the 9-stat model). These need names match the `student_simulation_states` columns in `.docs/02_SCHEMA.sql` exactly; do NOT collapse them into combined `morale`/`health` vitals (those are not real columns).
+   - Implement continuous decay for all six needs, including `hygiene` and `bladder`. Bathrooms and showers may additionally act as discrete action triggers and debuff clearers, but they do not replace the continuous `hygiene`/`bladder` meters.
 
 4. **Mobile Visibility & 4-Hour Offline Catch-Up Clamp:**
    - Handle app minimizing and lock screens via `document.addEventListener('visibilitychange')`.

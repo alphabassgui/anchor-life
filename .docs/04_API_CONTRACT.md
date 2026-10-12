@@ -239,8 +239,10 @@ export interface SaveStateRequest {
   vitals: {
     hunger: number;  // 0.00 - 100.00
     energy: number;  // 0.00 - 100.00
-    morale: number;  // 0.00 - 100.00 (Streamlined Fun + Social)
-    health: number;  // 0.00 - 100.00 (Streamlined Hygiene + Vitality)
+    hygiene: number; // 0.00 - 100.00
+    bladder: number; // 0.00 - 100.00
+    fun: number;     // 0.00 - 100.00
+    social: number;  // 0.00 - 100.00
   };
   academic: {
     cgpa: number;     // 0.00 - 5.00
@@ -331,8 +333,10 @@ export interface SaveStateRequest {
       "vitals": {
         "hunger": 78.50,
         "energy": 64.20,
-        "morale": 80.00,
-        "health": 95.00
+        "hygiene": 72.00,
+        "bladder": 55.00,
+        "fun": 80.00,
+        "social": 68.00
       },
       "cgpa": 3.50,
       "devotion": 85.00,

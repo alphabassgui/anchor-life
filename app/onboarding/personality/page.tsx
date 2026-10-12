@@ -10,6 +10,7 @@ import {
   REQUIRED_TRAIT_COUNT,
   type PersonalityTraitId,
 } from "@/lib/constants/personality";
+import { ONBOARDING_ROUTES } from "@/lib/constants/onboardingRoutes";
 
 export default function PersonalityStepPage() {
   const [selected, setSelected] = useState<PersonalityTraitId[]>([]);
@@ -30,8 +31,8 @@ export default function PersonalityStepPage() {
   const handleContinue = () => {
     if (!isComplete) return;
     setData({ personalityTraits: selected });
-    // TASK-ONBOARD-5+: /onboarding/step-3 is a placeholder for the next step.
-    router.push("/onboarding/step-3");
+    // Next step after personality is the Dream step. Not built yet — may 404.
+    router.push(ONBOARDING_ROUTES.dream);
   };
 
   return (

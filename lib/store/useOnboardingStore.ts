@@ -14,6 +14,7 @@ export interface OnboardingData {
   password: string;
   dateOfBirth: string; // YYYY-MM-DD
   isAdult: boolean;
+  gender: "male" | "female";
   personalityTraits: string[]; // exactly 2 trait IDs (see lib/constants/personality.ts)
 }
 
@@ -31,6 +32,7 @@ const INITIAL_DATA: OnboardingData = {
   password: "",
   dateOfBirth: "",
   isAdult: false,
+  gender: "male",
   personalityTraits: [],
 };
 

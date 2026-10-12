@@ -14,6 +14,7 @@ export interface OnboardingData {
   password: string;
   dateOfBirth: string; // YYYY-MM-DD
   isAdult: boolean;
+  personalityTraits: string[]; // exactly 2 trait IDs (see lib/constants/personality.ts)
 }
 
 interface OnboardingStore extends OnboardingData {
@@ -30,6 +31,7 @@ const INITIAL_DATA: OnboardingData = {
   password: "",
   dateOfBirth: "",
   isAdult: false,
+  personalityTraits: [],
 };
 
 export const useOnboardingStore = create<OnboardingStore>()((set) => ({

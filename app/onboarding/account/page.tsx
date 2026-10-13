@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -144,17 +145,15 @@ export default function OnboardingAccountPage() {
             >
               Create account
             </span>
-            {/* "Log in" is visible but inert on this screen (built in a later task). */}
-            <button
-              type="button"
+            {/* "Log in" navigates to the login screen (mirrors how /login links back here). */}
+            <Link
+              href="/login"
               role="tab"
               aria-selected={false}
-              aria-disabled
-              disabled
-              className="cursor-not-allowed rounded-lg py-2 text-center text-slate-400"
+              className="rounded-lg py-2 text-center text-slate-500 transition-colors hover:text-brand-primary"
             >
               Log in
-            </button>
+            </Link>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>

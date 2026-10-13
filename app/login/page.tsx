@@ -3,22 +3,59 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PasswordField } from "@/components/onboarding/PasswordField";
+import { createClient } from "@/lib/supabase/client";
 import { ONBOARDING_ROUTES } from "@/lib/constants/onboardingRoutes";
 
+// The game/home route doesn't exist yet — pushing here 404s for now. Matches
+// where the into-game screen sends a signed-in user, so both entry points agree.
+const GAME_ROUTE = "/campus";
+
 export default function LoginPage() {
+  const router = useRouter();
+
   // Controlled inputs so the reused fields (incl. the password eye toggle) work.
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // AUTH WIRING PENDING — handle→email lookup + Supabase sign-in wired later with
-    // the register route. Login accepts email OR handle; email is the Supabase
-    // credential; handle requires a handle→email lookup (students table is currently
-    // empty, so no real login is testable yet).
+    if (submitting) return; // guard against double-submit
+    setSubmitting(true);
+    setErrorMsg(null);
+
+    const id = identifier.trim();
+    const isEmail = id.includes("@");
+
+    if (!isEmail) {
+      // HANDLE→EMAIL LOOKUP — PENDING (next task). Handles are UNIQUE in students.
+      // Later: look up the email for this handle (via a small server route or RPC, since
+      // the students row isn't readable by an unauthenticated anon client without a policy),
+      // then call signInWithPassword with that email. For now we ask the user to use email.
+      setErrorMsg("For now, please log in with your email address. Username login is coming soon.");
+      setSubmitting(false);
+      return;
+    }
+
+    // EMAIL path (active): sign in with the BROWSER/anon Supabase client so session
+    // cookies are set in the browser. The admin/service_role client stays server-side.
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email: id, password });
+
+    if (error) {
+      // Generic message — never reveal whether the email exists.
+      setErrorMsg("Incorrect email or password.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Success. GAME_ROUTE 404s until the game is built — the auth itself is the win.
+    router.push(GAME_ROUTE);
   };
 
   return (
@@ -104,13 +141,20 @@ export default function LoginPage() {
               </a>
             </div>
 
+            {errorMsg ? (
+              <p role="alert" className="text-center text-sm font-medium text-status-heat">
+                {errorMsg}
+              </p>
+            ) : null}
+
             {/* Green primary (overrides the light tone's navy background). */}
             <Button
               type="submit"
               tone="light"
+              disabled={submitting}
               className="mt-2 w-full bg-status-naira hover:bg-emerald-600"
             >
-              Log in
+              {submitting ? "Logging in…" : "Log in"}
             </Button>
 
             <p className="text-center text-sm text-slate-500">Welcome back to Anchor.</p>

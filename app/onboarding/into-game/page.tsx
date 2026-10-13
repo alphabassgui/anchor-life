@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { useOnboardingStore } from "@/lib/store/useOnboardingStore";
+import { createClient } from "@/lib/supabase/client";
 import { ARCHETYPES } from "@/lib/constants/archetypes";
 import { HOSTELS } from "@/lib/constants/hostels";
 import { DREAMS } from "@/lib/constants/dreams";
@@ -17,9 +19,33 @@ const NOT_SET = "— not set —";
 // the forward-wiring pattern used by the earlier onboarding steps.
 const GAME_ROUTE = "/campus";
 
+// Friendly text for the register route's known error codes. Unknown codes fall
+// back to the server's own message; a missing body falls back to the generic.
+const ERROR_MESSAGES: Record<string, string> = {
+  NOT_ADULT: "You must be 18 or older to join Anchor.",
+  INVALID_PERSONALITY: "Something's off with your personality picks — go back and choose 2.",
+  INVALID_DREAM: "Something's off with your campus dream — go back and pick one.",
+  HANDLE_TAKEN: "That handle is already taken. Go back and choose another.",
+  INVALID_EMAIL: "That email doesn't look right. Go back and fix it.",
+  WEAK_PASSWORD: "Your password is too short. Go back and use at least 8 characters.",
+  INVALID_FULL_NAME: "Your name is missing or too long. Go back and fix it.",
+  INVALID_HANDLE: "That handle isn't valid. Go back and choose another.",
+  INVALID_GENDER: "Your character setup is incomplete. Go back to the look step.",
+  INVALID_HOSTEL: "Pick a hostel before continuing.",
+  INVALID_FACULTY: "Pick a valid faculty before continuing.",
+  INVALID_DEPARTMENT: "Your department doesn't match your faculty. Go back and reselect.",
+  HOSTEL_GENDER_MISMATCH: "That hostel doesn't match your gender. Go back and reselect.",
+  MATRIC_GENERATION_FAILED: "We couldn't assign a matric number. Please try again.",
+};
+const GENERIC_ERROR = "Something went wrong. Please try again.";
+
 export default function IntoGameStepPage() {
   const router = useRouter();
   const store = useOnboardingStore();
+  const reset = useOnboardingStore((s) => s.reset);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Resolve stored ids to human-readable names via the shared constants — no
   // display strings are hardcoded here.
@@ -47,12 +73,74 @@ export default function IntoGameStepPage() {
     { label: "Personality", value: personalityValue },
   ];
 
-  const handleEnter = () => {
-    // FINAL SUBMIT — WIRING PENDING. This is the single end-of-flow commit point.
-    // At wiring: POST the entire onboarding store to /api/auth/register in ONE call
-    // (include is_adult, gender, personality_traits, dream, appearance, faculty, department, assignedHostel,
-    //  and server-assign archetype reroll-proof), then sign the user in for auth cookies, THEN navigate into the game.
-    // For now this button only navigates to the placeholder game route below.
+  const handleEnter = async () => {
+    if (submitting) return; // guard against double-submit
+    setSubmitting(true);
+    setErrorMsg(null);
+
+    // FINAL SUBMIT — the single end-of-flow commit point. Map the store to the
+    // EXACT body keys the register route reads. We intentionally do NOT send
+    // `archetype` or `matricNumber`: the server assigns both (archetype is rolled
+    // reroll-proof server-side; matric is generated server-side).
+    const body = {
+      email: store.email,
+      password: store.password,
+      fullName: store.fullName,
+      handle: store.handle,
+      gender: store.gender,
+      assignedHostel: store.assignedHostel,
+      faculty: store.faculty,
+      department: store.department,
+      isAdult: store.isAdult,
+      personalityTraits: store.personalityTraits,
+      dream: store.dream,
+    };
+
+    let json: { success?: boolean; error?: { code?: string; message?: string } } | null = null;
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        // Surface a friendly message by code, else the server's message, else generic.
+        const code = json?.error?.code;
+        setErrorMsg(
+          (code && ERROR_MESSAGES[code]) || json?.error?.message || GENERIC_ERROR,
+        );
+        setSubmitting(false); // re-enable; do NOT navigate
+        return;
+      }
+    } catch {
+      setErrorMsg(GENERIC_ERROR); // network/unexpected failure
+      setSubmitting(false);
+      return;
+    }
+
+    // Registration succeeded. Sign in with the BROWSER/anon Supabase client so
+    // session cookies are established in the browser. The admin/service_role
+    // client stays server-side only and is never used here.
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: store.email,
+      password: store.password,
+    });
+
+    if (signInError) {
+      // Edge case: the account WAS created but auto sign-in failed. Don't treat
+      // the whole flow as failed — clear the draft and send them to log in.
+      reset();
+      router.push("/login");
+      return;
+    }
+
+    // Fully done: clear the onboarding draft so a refresh can't resubmit, then
+    // head into the game. GAME_ROUTE (/campus) 404s until the game is built —
+    // the register + sign-in succeeding IS the success here.
+    reset();
     router.push(GAME_ROUTE);
   };
 
@@ -97,8 +185,19 @@ export default function IntoGameStepPage() {
           </dl>
         </div>
 
-        <Button tone="light" onClick={handleEnter} className="mt-6 w-full">
-          Enter Anchor
+        {errorMsg ? (
+          <p role="alert" className="mt-6 text-center text-sm font-medium text-status-heat">
+            {errorMsg}
+          </p>
+        ) : null}
+
+        <Button
+          tone="light"
+          onClick={handleEnter}
+          disabled={submitting}
+          className={errorMsg ? "mt-3 w-full" : "mt-6 w-full"}
+        >
+          {submitting ? "Entering…" : "Enter Anchor"}
         </Button>
 
         <p className="mt-5 text-center font-mono text-xs uppercase tracking-[0.2em] text-slate-400">

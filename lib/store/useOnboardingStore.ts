@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ArchetypeId } from "@/lib/constants/archetypes";
 import type { HostelId } from "@/lib/constants/hostels";
+import type { Faculty } from "@/lib/constants/faculties";
 
 /**
  * Onboarding data collected across the 9-step flow (TASK-ONBOARD-2).
@@ -21,6 +22,8 @@ export interface OnboardingData {
   dream: string; // exactly 1 dream ID (see lib/constants/dreams.ts)
   archetype: ArchetypeId | ""; // game-assigned on the reveal screen; "" = not yet rolled
   assignedHostel: HostelId | ""; // player-picked hostel; "" = not yet picked (field name matches register route payload)
+  faculty: Faculty | ""; // player-picked faculty; "" = not yet picked
+  department: string; // must belong to `faculty` — cleared to "" whenever faculty changes
 }
 
 interface OnboardingStore extends OnboardingData {
@@ -42,6 +45,8 @@ const INITIAL_DATA: OnboardingData = {
   dream: "",
   archetype: "",
   assignedHostel: "",
+  faculty: "",
+  department: "",
 };
 
 export const useOnboardingStore = create<OnboardingStore>()((set) => ({

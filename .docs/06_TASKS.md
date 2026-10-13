@@ -86,7 +86,8 @@
 * **Dependencies:** TASK-102, TASK-002
 * **Action Items:**
   * [ ] Build form validating Matric Number regex (`^AUL\/[A-Z]{3}\/\d{2}\/\d{3}$`) and unique handle.
-  * [ ] Implement Archetype Card selector: "Nepo Baby" (₦150k starting) vs. "Campus Hustler" (₦2.5k starting).
+  * [x] Archetype reveal screen (static UI): weighted birth-lottery reveal of "Nepo Baby" (₦150k) vs. "Campus Hustler" (₦2.5k).
+  * [ ] Wire the assigned archetype into POST /api/auth/register (archetype validation + starting wallet cash).
   * [ ] Build avatar creator updating skin color, hair mesh, top/bottom attire, and gender.
   * [ ] Wire up `POST /api/auth/register` to create Supabase auth user, insert `students` profile, assign hostel bunk, and initialize `student_simulation_states`.
 * **Acceptance Criteria:** Successful registration redirects to the game viewport with active auth cookies and seeded starting stats.

@@ -7,6 +7,9 @@ export interface SelectOption {
   label: string;
 }
 
+/** Dark is the app default; "light" is the onboarding flow's scoped light theme. */
+type SelectTone = "dark" | "light";
+
 interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"> {
   label: string;
   options: readonly SelectOption[];
@@ -14,11 +17,37 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "chi
   placeholder?: string;
   error?: string;
   hint?: string;
+  tone?: SelectTone;
 }
 
+interface ToneClasses {
+  label: string;
+  field: string;
+  fieldBorder: string;
+  hint: string;
+}
+
+// Light tone reuses the scheme-independent brand tokens on white/slate surfaces
+// (same split as Input's light tone); it never redefines the dark tokens.
+const TONE_CLASSES: Record<SelectTone, ToneClasses> = {
+  dark: {
+    label: "text-brand-surface",
+    field: "bg-brand-secondary text-brand-surface",
+    fieldBorder: "border-brand-subtle/30",
+    hint: "text-brand-subtle",
+  },
+  light: {
+    label: "text-brand-primary",
+    field: "bg-white text-brand-primary",
+    fieldBorder: "border-brand-subtle",
+    hint: "text-slate-500",
+  },
+};
+
 /**
- * Base labelled native <select> (TASK-103b-1). Native element = mobile-friendly
- * picker. Token-styled with inline error/hint support.
+ * Base labelled native <select> (TASK-103b-1; light tone added TASK-ONBOARD-8).
+ * Native element = mobile-friendly picker. Token-styled with inline error/hint
+ * support.
  */
 export function Select({
   label,
@@ -26,6 +55,7 @@ export function Select({
   placeholder = "Select…",
   error,
   hint,
+  tone = "dark",
   className,
   id,
   value,
@@ -34,10 +64,11 @@ export function Select({
   const generatedId = useId();
   const selectId = id ?? generatedId;
   const describedById = error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined;
+  const t = TONE_CLASSES[tone];
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={selectId} className="text-sm font-medium text-brand-surface">
+      <label htmlFor={selectId} className={cn("text-sm font-medium", t.label)}>
         {label}
       </label>
       <select
@@ -46,10 +77,11 @@ export function Select({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedById}
         className={cn(
-          "overlay-interactive w-full rounded-xl border bg-brand-secondary px-4 py-3 text-sm text-brand-surface",
+          "overlay-interactive w-full rounded-xl border px-4 py-3 text-sm",
           "focus:outline-none focus:ring-2 focus:ring-brand-accent",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          error ? "border-status-heat" : "border-brand-subtle/30",
+          t.field,
+          error ? "border-status-heat" : t.fieldBorder,
           className,
         )}
         {...props}
@@ -68,7 +100,7 @@ export function Select({
           {error}
         </p>
       ) : hint ? (
-        <p id={describedById} className="text-xs text-brand-subtle">
+        <p id={describedById} className={cn("text-xs", t.hint)}>
           {hint}
         </p>
       ) : null}

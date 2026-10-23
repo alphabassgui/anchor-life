@@ -32,19 +32,50 @@ export default function LoginPage() {
     const id = identifier.trim();
     const isEmail = id.includes("@");
 
+    // BROWSER/anon Supabase client (both paths): signing in here sets the session
+    // cookies in the browser. The admin/service_role client stays server-side.
+    const supabase = createClient();
+
     if (!isEmail) {
-      // HANDLE→EMAIL LOOKUP — PENDING (next task). Handles are UNIQUE in students.
-      // Later: look up the email for this handle (via a small server route or RPC, since
-      // the students row isn't readable by an unauthenticated anon client without a policy),
-      // then call signInWithPassword with that email. For now we ask the user to use email.
-      setErrorMsg("For now, please log in with your email address. Username login is coming soon.");
-      setSubmitting(false);
+      // HANDLE path: Supabase authenticates by email only, and the students row that
+      // maps handle→email isn't readable by the anon client (RLS). So resolve the email
+      // server-side first, then sign in with it. The route returns email:null for a
+      // missing handle — indistinguishable from a wrong password, so no enumeration.
+      let email: string | null = null;
+      try {
+        const res = await fetch("/api/auth/resolve-handle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ handle: id }),
+        });
+        const json = await res.json();
+        if (res.ok && json?.success) {
+          email = (json.data?.email as string | null) ?? null;
+        }
+      } catch {
+        email = null; // network/parse failure → generic failure below
+      }
+
+      if (!email) {
+        // No such handle, or the lookup failed. Same generic message as a bad password.
+        setErrorMsg("Incorrect username or password.");
+        setSubmitting(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setErrorMsg("Incorrect username or password.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Success. GAME_ROUTE 404s until the game is built — the auth itself is the win.
+      router.push(GAME_ROUTE);
       return;
     }
 
-    // EMAIL path (active): sign in with the BROWSER/anon Supabase client so session
-    // cookies are set in the browser. The admin/service_role client stays server-side.
-    const supabase = createClient();
+    // EMAIL path (active): sign in directly with the entered address.
     const { error } = await supabase.auth.signInWithPassword({ email: id, password });
 
     if (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { useOnboardingStore } from "@/lib/store/useOnboardingStore";
@@ -30,21 +30,29 @@ function rollArchetype(): Archetype {
 export default function ArchetypeRevealPage() {
   const router = useRouter();
 
-  // Pick EXACTLY ONCE, client-side only. The roll lives in an effect (not a
-  // render-time initializer) because Math.random() during prerender is rejected
-  // by Next.js and would also bake a fixed result into the static HTML. Reuse an
-  // already-assigned archetype (e.g. navigating back then forward) instead of
-  // re-rolling. `archetype` stays null until the effect runs on mount.
-  const [archetype, setArchetype] = useState<Archetype | null>(null);
+  // Pick EXACTLY ONCE, client-side only. useSyncExternalStore returns null on the
+  // server (no Math.random() during prerender) and the real pick on the client.
+  // useRef memoises the result so subsequent renders don't re-roll.
+  const pickedRef = useRef<Archetype | null>(null);
+  const archetype = useSyncExternalStore(
+    () => () => {},
+    () => {
+      if (!pickedRef.current) {
+        const { archetype: existing } = useOnboardingStore.getState();
+        pickedRef.current = existing
+          ? (ARCHETYPES.find((a) => a.id === existing) ?? rollArchetype())
+          : rollArchetype();
+      }
+      return pickedRef.current;
+    },
+    () => null,
+  );
 
+  // Persist the roll to the store once the client-side pick is resolved.
+  // setData is a Zustand action, not React state, so it's fine inside an effect.
   useEffect(() => {
-    const { archetype: existing, setData } = useOnboardingStore.getState();
-    const chosen = existing
-      ? ARCHETYPES.find((a) => a.id === existing) ?? rollArchetype()
-      : rollArchetype();
-    setArchetype(chosen);
-    setData({ archetype: chosen.id });
-  }, []);
+    if (archetype) useOnboardingStore.getState().setData({ archetype: archetype.id });
+  }, [archetype]);
 
   const handleContinue = () => {
     // Next step after archetype is the Hostel step. Not built yet — may 404.

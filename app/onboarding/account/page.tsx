@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,12 +51,13 @@ export default function OnboardingAccountPage() {
   const router = useRouter();
   const setData = useOnboardingStore((state) => state.setData);
 
-  // Set the date-input ceiling after mount to avoid an SSR/client hydration
-  // mismatch on the `max` attribute. (No age math here — that's TASK-ONBOARD-2.)
-  const [maxDob, setMaxDob] = useState("");
-  useEffect(() => {
-    setMaxDob(new Date().toISOString().slice(0, 10));
-  }, []);
+  // useSyncExternalStore returns "" on the server and today's date on the client,
+  // avoiding both the SSR/hydration mismatch and the set-state-in-effect lint rule.
+  const maxDob = useSyncExternalStore(
+    () => () => {},
+    () => new Date().toISOString().slice(0, 10),
+    () => "",
+  );
 
   const errors = {
     fullName: !fullName.trim()

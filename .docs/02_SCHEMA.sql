@@ -4,9 +4,14 @@
 -- Dialect: PostgreSQL 15+ (Optimized for Supabase & Next.js App Router)
 -- Description: Hardened schema with anti-cheat controls, combat-logging locks,
 --              PvP victim shields, offline catch-up timestamps, non-permadeath
---              indigent suspension pardon loops, and cross-hostel relocation triggers.
+--              indigent suspension pardon loops, and gender-derived hostel spawn.
 -- NOTE: Ephemeral presence coordinates are delegated to Upstash Redis to prevent
 --       PostgreSQL MVCC table bloat.
+--
+-- VITAL MODEL (LOCKED v1): The simulation uses the STREAMLINED 4-VITAL system
+--   (hunger, energy, morale, health). Morale = Fun + Social merged; Health =
+--   Hygiene. Bladder is REMOVED (no bathroom-management chore). This replaces
+--   the earlier 6-need model. See .docs/03_GAME_ENGINE.md §2.
 -- ============================================================================
 
 -- 0. EXTENSIONS & SETUP
@@ -89,15 +94,15 @@ CREATE TYPE item_storage_slot AS ENUM (
 CREATE TABLE students (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     auth_user_id UUID UNIQUE, -- Supabase auth.users(id)
-    matric_number VARCHAR(24) UNIQUE NOT NULL,
+    matric_number VARCHAR(24) UNIQUE NOT NULL, -- SERVER-GENERATED (AUL/XXX/YY/NNN); never client-supplied
     handle VARCHAR(32) UNIQUE NOT NULL,
     full_name VARCHAR(96) NOT NULL,
     gender gender_type NOT NULL,
     department VARCHAR(64) NOT NULL DEFAULT 'Computer Science',
     level INT NOT NULL DEFAULT 100 CHECK (level IN (100, 200, 300, 400)),
-    archetype student_archetype NOT NULL DEFAULT 'campus_hustler',
+    archetype student_archetype NOT NULL DEFAULT 'campus_hustler', -- SERVER-ROLLED (reroll-proof); never client-supplied
     status student_status NOT NULL DEFAULT 'good_standing',
-    assigned_hostel hostel_id NOT NULL,
+    assigned_hostel hostel_id NOT NULL, -- Drives spawn: male => peace_hostel; female => purity_hostel | patience_hostel
     bunk_number VARCHAR(16) NOT NULL DEFAULT 'Bunk 01',
 
     -- Visual 3D Avatar Customization (Modular GLB tinting)
@@ -143,24 +148,24 @@ CREATE INDEX idx_students_status ON students(status);
 CREATE INDEX idx_students_theft_shield ON students(theft_immunity_until);
 
 -- ============================================================================
--- 3. THE 9-STAT SIMULATION & NEED STATE (HARDENED)
+-- 3. SIMULATION & VITAL STATE (HARDENED) — 4-VITAL MODEL
+--    4 streamlined vitals (hunger, energy, morale, health) + academic/spiritual
+--    meters (CGPA, Devotion) + disciplinary SDC Heat. See .docs/03_GAME_ENGINE.md.
 -- ============================================================================
 
 CREATE TABLE student_simulation_states (
     student_id UUID PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
 
-    -- Core Needs Meters (Decay clamped between 0.00 and 100.00)
+    -- Core Vital Meters (Decay clamped between 0.00 and 100.00)
     hunger NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (hunger BETWEEN 0.00 AND 100.00),
     energy NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (energy BETWEEN 0.00 AND 100.00),
-    hygiene NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (hygiene BETWEEN 0.00 AND 100.00),
-    bladder NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (bladder BETWEEN 0.00 AND 100.00),
-    fun NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (fun BETWEEN 0.00 AND 100.00),
-    social NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (social BETWEEN 0.00 AND 100.00),
+    morale NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (morale BETWEEN 0.00 AND 100.00), -- merged Fun + Social
+    health NUMERIC(5, 2) NOT NULL DEFAULT 100.00 CHECK (health BETWEEN 0.00 AND 100.00), -- hygiene/vitality (bathing is a discrete action)
 
     -- Academic & Spiritual Meters
     cgpa NUMERIC(3, 2) NOT NULL DEFAULT 3.50 CHECK (cgpa BETWEEN 0.00 AND 5.00),
     devotion NUMERIC(5, 2) NOT NULL DEFAULT 85.00 CHECK (devotion BETWEEN 0.00 AND 100.00),
-    
+
     -- Disciplinary Threat Meter
     sdc_heat INT NOT NULL DEFAULT 0 CHECK (sdc_heat BETWEEN 0 AND 5),
 
@@ -170,7 +175,9 @@ CREATE TABLE student_simulation_states (
     skill_fitness NUMERIC(4, 2) NOT NULL DEFAULT 0.00,
     skill_hustle NUMERIC(4, 2) NOT NULL DEFAULT 0.00,
 
-    -- Spatial Position (Last confirmed persistent venue)
+    -- Spatial Position (Last confirmed persistent venue). current_venue is SET
+    -- EXPLICITLY at registration from the student's assigned_hostel; the default
+    -- below is only a fallback and must not be relied on for spawn correctness.
     current_venue VARCHAR(48) NOT NULL DEFAULT 'peace_hostel',
     spot_id VARCHAR(32) DEFAULT 'bunk_01',
     current_pose VARCHAR(24) NOT NULL DEFAULT 'idle',
@@ -332,6 +339,8 @@ CREATE TABLE campus_global_policies (
 -- ============================================================================
 
 -- Function 1: Atomic PvP Theft with 60-Minute Victim Immunity Shield
+-- Loot is 15%–35% of the victim's liquid wallet (p_steal_percentage in [0.15, 0.35]),
+-- per .docs/03_GAME_ENGINE.md §6.2. Caller supplies the rolled percentage.
 CREATE OR REPLACE FUNCTION execute_pvp_theft(
     p_thief_id UUID,
     p_victim_id UUID,
@@ -354,8 +363,8 @@ BEGIN
     END IF;
 
     -- 2. Check victim theft immunity shield
-    SELECT wallet_balance, theft_immunity_until 
-    INTO v_victim_wallet, v_immunity_until 
+    SELECT wallet_balance, theft_immunity_until
+    INTO v_victim_wallet, v_immunity_until
     FROM students WHERE id = p_victim_id FOR UPDATE;
 
     IF v_immunity_until > NOW() THEN
@@ -369,14 +378,14 @@ BEGIN
     -- 3. Calculate Loot & Mutate Wallets
     v_stolen_amount := ROUND(v_victim_wallet * p_steal_percentage);
 
-    UPDATE students 
+    UPDATE students
     SET wallet_balance = wallet_balance - v_stolen_amount,
         theft_immunity_until = NOW() + INTERVAL '60 minutes' -- 60m shield applied!
     WHERE id = p_victim_id;
 
-    UPDATE students 
-    SET wallet_balance = wallet_balance + v_stolen_amount 
-    WHERE id = p_thief_id 
+    UPDATE students
+    SET wallet_balance = wallet_balance + v_stolen_amount
+    WHERE id = p_thief_id
     RETURNING wallet_balance INTO v_thief_wallet;
 
     -- 4. Audit Log & Victim Inbox
@@ -400,23 +409,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function 2: Cross-Hostel Login Guard (Evicts male students from female hostels on boot)
-CREATE OR REPLACE FUNCTION sanitize_student_spawn_location()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.gender = 'male' AND NEW.assigned_hostel = 'peace_hostel' THEN
-        -- If current venue in simulation state points to female hostel, force relocation
-        UPDATE student_simulation_states
-        SET current_venue = 'main_roundabout',
-            spot_id = 'plaza_bench_01'
-        WHERE student_id = NEW.id 
-          AND current_venue IN ('purity_hostel', 'patience_hostel');
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Function 3: Auto-Lift Suspension when fine or labor is cleared
+-- Function 2: Auto-Lift Suspension when fine or labor is cleared
 CREATE OR REPLACE FUNCTION check_suspension_lift()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -439,6 +432,14 @@ BEFORE UPDATE ON students
 FOR EACH ROW
 EXECUTE FUNCTION check_suspension_lift();
 
+-- NOTE (spawn): The former `sanitize_student_spawn_location` trigger has been
+-- REMOVED. It relocated players to 'main_roundabout'/'plaza_bench_01' — venues
+-- that do not exist in the campus_venues catalog — and only handled males in
+-- female hostels. Spawn is now DERIVED CORRECTLY at source: the register route
+-- seeds `current_venue` from the student's `assigned_hostel` (male => peace_hostel;
+-- female => purity_hostel | patience_hostel). Cross-hostel entry is further guarded
+-- at the API layer (FORBIDDEN_VENUE_GENDER, see .docs/04_API_CONTRACT.md §8).
+
 -- ============================================================================
 -- 11. ROW-LEVEL SECURITY (RLS)
 -- ============================================================================
@@ -459,6 +460,14 @@ CREATE POLICY "Private student inbox" ON student_inbox FOR ALL USING (
     student_id IN (SELECT id FROM students WHERE auth_user_id = auth.uid())
 );
 CREATE POLICY "Public campus policies" ON campus_global_policies FOR SELECT USING (true);
+
+-- NOTE (access-control): service_role bypasses RLS and is the ONLY write path for
+-- player routes. API-route code is therefore the authoritative guard: derive
+-- student_id from the auth session (cookies -> auth user -> students row where
+-- auth_user_id = uid) and NEVER accept student_id from the request body.
+-- service_role has been granted INSERT, SELECT, UPDATE on students and
+-- student_simulation_states. Open flag: student_items and financial_ledger have
+-- RLS enabled but no explicit policy yet (tracked in .docs/07_OPEN_CONFLICTS.md).
 
 -- ============================================================================
 -- 12. SEED INITIAL DATA
@@ -481,3 +490,21 @@ VALUES
 ('admin_block', 'Administrative Block & SDC', 'academic', NULL, 40, 17, 8, '/assets/venues/admin_block.glb'),
 ('health_centre', 'Campus Health Centre', 'lifestyle', NULL, 30, NULL, NULL, '/assets/venues/health_centre.glb')
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- 13. LIVE MIGRATION PLAN (6-need -> 4-vital) — apply to production in Part A
+-- ============================================================================
+-- The deployed student_simulation_states table still has the legacy 6 need
+-- columns. The following migration converts it to the 4-vital model. It merges
+-- fun+social into morale and repurposes hygiene as health, then drops bladder.
+--
+--   ALTER TABLE student_simulation_states RENAME COLUMN hygiene TO health;
+--   ALTER TABLE student_simulation_states RENAME COLUMN fun    TO morale;
+--   -- Fold social into morale (average of fun & social), then drop extras:
+--   UPDATE student_simulation_states
+--     SET morale = ROUND((morale + social) / 2.0, 2);
+--   ALTER TABLE student_simulation_states DROP COLUMN social;
+--   ALTER TABLE student_simulation_states DROP COLUMN bladder;
+--
+-- Since this is pre-launch (test accounts only), dropping instead of merging is
+-- also acceptable. Final column set MUST be: hunger, energy, morale, health.

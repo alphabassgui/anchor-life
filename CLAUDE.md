@@ -1,9 +1,7 @@
-
 # CLAUDE.md — Anchor Life Engineering Instructions
-> NOTE: This project runs Next.js 16 (App Router). Where any doc says "Next.js 15", treat it as 16. All other invariants stand.
 
 ## Project Overview
-Anchor Life is a mobile-first 2.5D campus simulation game set at Anchor University, Ayobo, Lagos, inspired by the architecture of *Lagos Life* (`lagoslife.app`). Built using Next.js 15 (App Router), React 19, Three.js (Orthographic WebGL), Tailwind CSS, Zustand, Supabase (PostgreSQL), and Upstash Redis.
+Anchor Life is a mobile-first 2.5D campus simulation game set at Anchor University, Ayobo, Lagos, inspired by the architecture of *Lagos Life* (`lagoslife.app`). Built using Next.js 16 (App Router, Turbopack), React 19, Three.js (Orthographic WebGL), Tailwind CSS v4, Zustand, Supabase (PostgreSQL), and Upstash Redis.
 
 ---
 
@@ -13,7 +11,7 @@ Anchor Life is a mobile-first 2.5D campus simulation game set at Anchor Universi
 - **TypeScript Check:** `npx tsc --noEmit`
 - **Linter:** `npm run lint`
 - **Unit & Logic Tests:** `npm test`
-- **Database Migrations:** `npx supabase db push` or execute SQL in Supabase Studio
+- **Database Migrations:** `npx supabase db push --remote --yes` (Supabase CLI v3+ defaults to the LOCAL stack; `--remote` is required to hit the linked cloud project, and hosted mutations require `--yes`.)
 
 ---
 
@@ -25,12 +23,13 @@ Anchor Life is a mobile-first 2.5D campus simulation game set at Anchor Universi
    - State persistence is strictly driven by debounced batch payloads (`POST /api/player/save`) sent every 30 seconds.
 
 2. **Client-Authoritative Simulation Engine:**
-   - Biological need decay, campus clocks, and avatar animations execute locally on the client device inside Zustand (`lib/store/useGameStore.ts`) on a 5-second tick loop.
+   - Biological vital decay, campus clocks, and avatar animations execute locally on the client device inside Zustand (`lib/store/useGameStore.ts`) on a 5-second tick loop.
    - The server acts strictly as an auditable relational database and transaction post office.
 
-3. **9-Stat / 6-Need System:**
-   - Track exactly 6 core continuous needs — `hunger`, `energy`, `hygiene`, `bladder`, `fun`, `social` — plus the three status stats `cgpa`, `devotion`, and `sdc_heat` (the 9-stat model). These need names match the `student_simulation_states` columns in `.docs/02_SCHEMA.sql` exactly; do NOT collapse them into combined `morale`/`health` vitals (those are not real columns).
-   - Implement continuous decay for all six needs, including `hygiene` and `bladder`. Bathrooms and showers may additionally act as discrete action triggers and debuff clearers, but they do not replace the continuous `hygiene`/`bladder` meters.
+3. **Streamlined 4-Vital System (LOCKED v1):**
+   - Track exactly 4 core continuous vitals: `hunger`, `energy`, `morale` (Fun + Social combined), and `health` (Hygiene / Vitality combined).
+   - Do NOT implement separate continuous decay timers for hygiene, bladder, fun, or social. Bathrooms and showers are discrete action triggers and debuff clearers; bladder is NOT modelled.
+   - Base hourly decay rates (`.docs/03_GAME_ENGINE.md` §2.1): Hunger 4.16%/hr, Energy 3.50%/hr, Morale 2.50%/hr, Health 1.50%/hr.
 
 4. **Mobile Visibility & 4-Hour Offline Catch-Up Clamp:**
    - Handle app minimizing and lock screens via `document.addEventListener('visibilitychange')`.
@@ -47,17 +46,21 @@ Anchor Life is a mobile-first 2.5D campus simulation game set at Anchor Universi
    - Any browser reload or session drop boots directly back into that encounter modal until resolved, forfeiting to automatic SDC surrender upon timeout.
 
 7. **Anti-Griefing PvP Theft Shield:**
-   - Direct PvP room theft is atomic via PostgreSQL transactions.
+   - Direct PvP room theft is atomic via PostgreSQL transactions and loots 15%–35% of the victim's liquid wallet.
    - Successfully robbed victims automatically receive `theft_immunity_until = NOW() + INTERVAL '60 minutes'`, blocking subsequent robbery attempts campus-wide.
 
-8. **Zero Albedo Texture Maps (Runtime Hex Tinting):**
+8. **Gender-Derived Hostel Spawn:**
+   - Spawn is DERIVED from the student's `assigned_hostel` (male => `peace_hostel`; female => `purity_hostel` | `patience_hostel`), seeded explicitly at registration.
+   - NEVER rely on the `current_venue` column default for spawn correctness. Cross-hostel entry is guarded at the API layer (`FORBIDDEN_VENUE_GENDER`).
+
+9. **Zero Albedo Texture Maps (Runtime Hex Tinting):**
    - NEVER load image textures (`.png`/`.jpg`) onto 3D models.
    - All 3D assets (`.glb`) are low-poly, untextured meshes dynamically tinted at runtime via `MeshStandardMaterial` hex colors.
 
-9. **DOM Layering & Touch Event Isolation:**
-   - The Three.js canvas sits behind the React DOM overlay.
-   - The overlay container must have `pointer-events-none`.
-   - All interactive HUD buttons, modals, and dock tabs must explicitly declare `pointer-events-auto`.
+10. **DOM Layering & Touch Event Isolation:**
+    - The Three.js canvas sits behind the React DOM overlay.
+    - The overlay container must have `pointer-events-none`.
+    - All interactive HUD buttons, modals, and dock tabs must explicitly declare `pointer-events-auto`.
 
 ---
 
@@ -68,10 +71,12 @@ Before creating or editing any code, always consult the documentation in `.docs/
 - **`AGENTS.md`:** AI agent rules, error message standards, and anti-patterns.
 - **`.docs/01_PRD.md`:** Campus lore, archetypes (Nepo Baby vs. Campus Hustler), and decision trees.
 - **`.docs/02_SCHEMA.sql`:** Hardened PostgreSQL schema, tables, triggers, and RLS policies.
-- **`.docs/03_GAME_ENGINE.md`:** Mathematical formulas, tick rates, and probability curves.
+- **`.docs/03_GAME_ENGINE.md`:** Mathematical formulas, tick rates, and probability curves (CANONICAL for all mechanics numbers).
 - **`.docs/04_API_CONTRACT.md`:** Exact REST route definitions, request/response types, and error codes.
 - **`.docs/05_DESIGN_SYSTEM.md`:** Isometric camera angles, Tailwind tokens, and UI components.
 - **`.docs/06_TASKS.md`:** Phased implementation backlog (always reference TASK-IDs).
+
+**Rule of Conflict:** If docs disagree, `.docs/03_GAME_ENGINE.md` is canonical for mechanics numbers and the 4-vital model; `.docs/02_SCHEMA.sql` is canonical for data shape. Both override older 6-need / 9-meter phrasing anywhere it still appears.
 
 ---
 
@@ -79,5 +84,5 @@ Before creating or editing any code, always consult the documentation in `.docs/
 
 1. **Verify Context First:** Always review the corresponding documentation in `.docs/` before implementing any feature.
 2. **Execute Incrementally:** Focus on one specific task from `.docs/06_TASKS.md` at a time.
-3. **Verify Integrity:** Run `npx tsc --noEmit` and `npm run build` after editing to ensure zero compiler or type errors.
+3. **Verify Integrity:** Run `npx tsc --noEmit` and `npm run build` after editing to ensure zero compiler or type errors. The `proof` plugin auto-runs typecheck + lint after file changes and before commits — fix the code on failure, never loosen the check.
 4. **Update Tasks:** Mark completed task checkboxes `[x]` in `.docs/06_TASKS.md`.

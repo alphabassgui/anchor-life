@@ -1,8 +1,8 @@
 # Anchor Life — Technical Architecture Specification
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Status:** Approved for Implementation  
-**Stack:** Next.js 15 (App Router), React 19, Three.js (WebGL), Tailwind CSS, Zustand, Supabase (PostgreSQL), Upstash Redis  
+**Stack:** Next.js 16 (App Router, Turbopack), React 19, Three.js (WebGL), Tailwind CSS v4, Zustand, Supabase (PostgreSQL), Upstash Redis  
 
 ---
 
@@ -15,7 +15,7 @@ Modeled after *Lagos Life* (`lagoslife.app`), the system enforces five foundatio
 1. **Stateless HTTP REST Over Heavy WebSockets:**  
    Room presence uses lightweight HTTP polling (`GET /api/campus/world`) backed by Upstash Redis In-Memory Sets. State persistence uses debounced client payloads (`POST /api/player/save`).
 2. **Client-Authoritative Simulation Engine:**  
-   The client Zustand store runs the 5-second deterministic tick loop. The server does not calculate real-time decay, acting strictly as an auditable database and ledger validator.
+   The client Zustand store runs the 5-second deterministic tick loop over the 4 vitals (hunger, energy, morale, health). The server does not calculate real-time decay, acting strictly as an auditable database and ledger validator.
 3. **Hybrid Rendering (WebGL 3D Base + DOM 2D Overlay):**  
    Three.js manages the orthographic 3D viewport. HUDs, encounter cards, and modals render in the 2D DOM using Tailwind CSS with `pointer-events` isolation.
 4. **Zero Albedo Texture Overhead:**  
@@ -31,45 +31,31 @@ Modeled after *Lagos Life* (`lagoslife.app`), the system enforces five foundatio
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            CLIENT VIEWPORT (DEVICE)                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │ 2D UI Overlay Layer (React 19 + Tailwind CSS)                         │  │
-│  │ • Top HUD: Needs Bars, Clock, Cash (₦), Location, Heat Stars         │  │
-│  │ • Encounter Dialogs: Combat-logging locked CSO Confrontations         │  │
-│  │ • Bottom Dock: Hostel / Shopping / Campus Map / Phone Inbox           │  │
-│  └──────────────────────────────────┬────────────────────────────────────┘  │
-│                                     │ Pointer Events (Transparent)          │
-│  ┌──────────────────────────────────▼────────────────────────────────────┐  │
-│  │ 2.5D WebGL Viewport Layer (Three.js)                                  │  │
-│  │ • Orthographic Camera: True isometric pitch ($35.264^\circ$, yaw $45^\circ$)│  │
-│  │ • Spot Snapping: Avatars interpolate between discrete Spot IDs        │  │
-│  │ • Dynamic Hex Tinting: Zero external image texture maps               │  │
-│  └──────────────────────────────────┬────────────────────────────────────┘  │
-│                                     │ Reads / Mutates Local State           │
-│  ┌──────────────────────────────────▼────────────────────────────────────┐  │
-│  │ Local Client Store (Zustand + LocalStorage Mirror)                    │  │
-│  │ • 5-Second Deterministic Need Tick Loop                               │  │
-│  │ • Offline Wall-Clock Catch-Up Handler (4h max clamp)                  │  │
-│  └──────────────────────────────────┬────────────────────────────────────┘  │
-└─────────────────────────────────────┼───────────────────────────────────────┘
-                                      │
-                         Stateless HTTP / JSON REST
-                                      │
-┌─────────────────────────────────────▼───────────────────────────────────────┐
-│                    NEXT.JS 15 APP ROUTER (STATELESS API)                    │
-├─────────────────────────────────────────────────────────────────────────────┤
+│  2D UI Overlay Layer (React 19 + Tailwind CSS)                              │
+│   • Top HUD: 4 Vital Bars, Clock, Cash (₦), Location, Heat Stars            │
+│   • Encounter Dialogs: Combat-logging locked CSO Confrontations             │
+│   • Bottom Dock: Hostel / Shopping / Campus Map / Phone Inbox               │
+│  2.5D WebGL Viewport Layer (Three.js)                                       │
+│   • Orthographic Camera: true isometric pitch 35.264°, yaw 45°              │
+│   • Spot Snapping: avatars interpolate between discrete Spot IDs            │
+│   • Dynamic Hex Tinting: zero external image texture maps                   │
+│  Local Client Store (Zustand + LocalStorage Mirror)                         │
+│   • 5-Second Deterministic Vital Tick Loop (hunger/energy/morale/health)    │
+│   • Offline Wall-Clock Catch-Up Handler (4h max clamp)                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                     │  Stateless HTTP / JSON REST
+                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    NEXT.JS 16 APP ROUTER (STATELESS API)                    │
 │  • GET  /api/campus/world       (High-speed Redis presence polling: 1.5s)   │
 │  • POST /api/campus/heartbeat   (Updates spotId in Redis sorted set)        │
 │  • POST /api/player/save        (Debounced delta-clamped state sync: 30s)   │
+│  • GET  /api/player/state       (Full state bundle on boot)                 │
 │  • POST /api/p2p/theft          (Atomic theft with 60m victim shield)       │
 │  • GET  /api/campus/policies    (Centralized inflation index & curfews)     │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                         DATA PERSISTENCE & CACHE                            │
-│  ┌──────────────────────────────────┐   ┌────────────────────────────────┐  │
-│  │ Upstash Redis (In-Memory)        │   │ Supabase PostgreSQL 15         │  │
-│  │ • Ephemeral Presence Sets        │   │ • User Profiles & Auth         │  │
-│  │ • Zero disk MVCC bloat           │   │ • Audited Financial Ledger     │  │
-│  │ • TTL: 10s auto-expire           │   │ • Active Encounter State Lock  │  │
-│  └──────────────────────────────────┘   └────────────────────────────────┘  │
+│  Upstash Redis (In-Memory): ephemeral presence sets, 10s TTL               │
+│  Supabase PostgreSQL 15: profiles, ledger, encounter locks, sim state      │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -94,13 +80,15 @@ Modeled after *Lagos Life* (`lagoslife.app`), the system enforces five foundatio
 ### 3.3 PvP Theft Victim Shield (Anti-Griefing)
 * **The Vulnerability:** Coordinated groups repeatedly robbing wealthy Nepo Babies down to ₦0.
 * **The Architecture:**
-  * Successful theft sets `theft_immunity_until = NOW() + INTERVAL '60 minutes'` on the victim.
+  * Successful theft (15%–35% loot) sets `theft_immunity_until = NOW() + INTERVAL '60 minutes'` on the victim.
   * Subsequent theft attempts fail at the database transaction level before wallet balances are accessed.
 
-### 3.4 Cross-Hostel Re-Login Trap Eviction
-* **The Vulnerability:** Male avatar logging out inside a female hostel and spawning into an immediate arrest loop.
+### 3.4 Gender-Derived Spawn (Replaces Cross-Hostel Re-Login Trap)
+* **The Vulnerability:** A player spawning into the wrong-gender hostel — e.g. a female student defaulting into Peace (male) hostel, or a male avatar waking into a female hostel arrest loop.
 * **The Architecture:**
-  * A PostgreSQL trigger (`sanitize_student_spawn_location`) automatically relocates male students found in female hostels on session initialization to `main_roundabout`.
+  * Spawn is derived at source: the register route seeds `current_venue` from the student's `assigned_hostel` (male => `peace_hostel`; female => `purity_hostel` | `patience_hostel`).
+  * The legacy `sanitize_student_spawn_location` trigger has been **removed** — it relocated players to `main_roundabout`, a venue absent from the catalog, and only handled one direction of the bug.
+  * Cross-hostel entry during play is guarded at the API layer (`FORBIDDEN_VENUE_GENDER`), not by a DB trigger.
 
 ### 3.5 Broke & Suspended Soft-Lock Mitigation
 * **The Vulnerability:** A student with ₦0 suspended with a ₦50,000 fine and unable to work gigs.

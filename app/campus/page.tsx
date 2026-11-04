@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useGameStore } from "@/lib/store/useGameStore";
-import type { ActionInput, Vitals } from "@/types/game";
+import type { ActionInput, ActiveAction, Vitals } from "@/types/game";
 
 // TUNABLE: room-action effect presets — adjust freely
 interface ActionPreset extends ActionInput {
@@ -54,10 +54,36 @@ function getMoodColor(vitals: Vitals): string {
   return "text-status-devotion";
 }
 
+function getActionStatus(active: ActiveAction): string {
+  const rising: string[] = [];
+  const vitalLabel: Record<keyof Vitals, string> = {
+    hunger: "Hunger", energy: "Energy", morale: "Morale", health: "Health",
+  };
+  for (const key of ["hunger", "energy", "morale", "health"] as Array<keyof Vitals>) {
+    if ((active.gainPerMinute[key] ?? 0) > 0) rising.push(vitalLabel[key]);
+  }
+  if ((active.cgpaPerMinute ?? 0) > 0) rising.push("CGPA");
+  if ((active.devotionPerMinute ?? 0) > 0) rising.push("Devotion");
+  const riseStr = rising.length > 0 ? ` · ${rising.join(", ")} rising` : "";
+  return `${active.label}…${riseStr}`;
+}
+
 export default function CampusPage() {
   const [isOpen, setIsOpen] = useState(false);
-  const { loaded, profile, vitals, academic, simTimeMinutes, hydrate, executeAction } =
-    useGameStore();
+  const {
+    loaded,
+    profile,
+    vitals,
+    academic,
+    simTimeMinutes,
+    activeAction,
+    hydrate,
+    startAction,
+    startSimulationLoop,
+    stopSimulationLoop,
+    handleVisibilityHidden,
+    handleVisibilityVisible,
+  } = useGameStore();
 
   useEffect(() => {
     fetch("/api/player/state")
@@ -67,6 +93,23 @@ export default function CampusPage() {
       })
       .catch((err: unknown) => console.error("[CampusPage] fetch state failed", err));
   }, [hydrate]);
+
+  useEffect(() => {
+    if (!loaded) return;
+
+    startSimulationLoop();
+
+    const onVisibility = () => {
+      if (document.hidden) handleVisibilityHidden();
+      else void handleVisibilityVisible();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      stopSimulationLoop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [loaded, startSimulationLoop, stopSimulationLoop, handleVisibilityHidden, handleVisibilityVisible]);
 
   if (!loaded) {
     return (
@@ -182,6 +225,16 @@ export default function CampusPage() {
               </div>
             </div>
 
+            {/* Active action indicator */}
+            {activeAction && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-brand-surface px-3 py-2">
+                <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-brand-accent" />
+                <p className="text-xs font-medium text-brand-primary/70">
+                  {getActionStatus(activeAction)}
+                </p>
+              </div>
+            )}
+
             {/* Status row */}
             <div className="mb-4 grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-brand-surface p-2.5">
@@ -231,16 +284,23 @@ export default function CampusPage() {
                 Actions
               </p>
               <div className="grid grid-cols-3 gap-1.5">
-                {ACTION_PRESETS.map(({ label, ...action }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => executeAction(action)}
-                    className="rounded-xl bg-brand-surface px-2 py-2.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-accent hover:text-brand-primary active:scale-95"
-                  >
-                    {label}
-                  </button>
-                ))}
+                {ACTION_PRESETS.map(({ label, ...action }) => {
+                  const isActive = activeAction?.id === label;
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => startAction(action, label)}
+                      className={`rounded-xl px-2 py-2.5 text-xs font-semibold transition-colors active:scale-95 ${
+                        isActive
+                          ? "bg-brand-accent text-brand-primary ring-2 ring-brand-primary/20"
+                          : "bg-brand-surface text-brand-primary hover:bg-brand-accent hover:text-brand-primary"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

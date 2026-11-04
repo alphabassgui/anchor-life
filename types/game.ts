@@ -58,6 +58,15 @@ export interface PlayerStateApiData {
   };
 }
 
+export interface ActiveAction {
+  id: string;
+  label: string;
+  remainingMinutes: number;
+  gainPerMinute: Partial<Record<keyof Vitals, number>>;
+  cgpaPerMinute?: number;
+  devotionPerMinute?: number;
+}
+
 export interface GameState {
   profile: Profile;
   vitals: Vitals;
@@ -65,4 +74,5 @@ export interface GameState {
   spatial: Spatial;
   simTimeMinutes: number;
   loaded: boolean;
+  activeAction: ActiveAction | null;
 }

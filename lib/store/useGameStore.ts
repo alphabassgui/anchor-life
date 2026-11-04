@@ -3,6 +3,7 @@ import type { ArchetypeId } from "@/lib/constants/archetypes";
 import type {
   ActionInput,
   Academic,
+  ActiveAction,
   GameState,
   Moodlet,
   PlayerStateApiData,
@@ -24,6 +25,14 @@ const ARCH_MOD: Record<ArchetypeId, Record<keyof Vitals, number>> = {
   nepo_baby: { hunger: 1.3, energy: 1.2, morale: 1.35, health: 1.0 },
   campus_hustler: { hunger: 0.8, energy: 0.85, morale: 0.85, health: 1.0 },
 };
+
+// ─── Tunable simulation knobs ─────────────────────────────────────────────
+const TICK_INTERVAL_MS  = 5_000;  // real ms between decay ticks
+const TICK_GAME_MINUTES = 5;      // game minutes advanced per tick
+const OFFLINE_CAP       = 240;   // max game-min of offline catch-up (4 hr)
+const SAVE_INTERVAL_MS  = 30_000; // real ms between background saves
+const SLEEP_DAMP        = 0.35;   // hunger & energy damping when offline-sleeping
+// ──────────────────────────────────────────────────────────────────────────
 
 function clamp(min: number, max: number, value: number): number {
   return Math.min(max, Math.max(min, value));
@@ -60,11 +69,20 @@ const DEFAULT_SPATIAL: Spatial = {
 
 interface GameActions {
   hydrate: (data: PlayerStateApiData) => void;
-  executeAction: (action: ActionInput) => void;
+  startAction: (action: ActionInput, label: string) => void;
   saveToServer: () => Promise<void>;
+  startSimulationLoop: () => void;
+  stopSimulationLoop: () => void;
+  handleVisibilityHidden: () => void;
+  handleVisibilityVisible: () => Promise<void>;
 }
 
 type GameStore = GameState & GameActions;
+
+// Mutable closure refs — not Zustand state; changing them never triggers a re-render.
+let _tickId: ReturnType<typeof setInterval> | null = null;
+let _saveId: ReturnType<typeof setInterval> | null = null;
+let _lastActiveAt = 0;
 
 export const useGameStore = create<GameStore>()((set, get) => ({
   profile: DEFAULT_PROFILE,
@@ -73,6 +91,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   spatial: DEFAULT_SPATIAL,
   simTimeMinutes: 0,
   loaded: false,
+  activeAction: null,
 
   hydrate: (data: PlayerStateApiData): void => {
     set({
@@ -100,48 +119,33 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     });
   },
 
-  executeAction: (action: ActionInput): void => {
-    set((state) => {
-      const { vitals, academic, simTimeMinutes } = state;
-      const archetype = state.profile.archetype;
-      const mod = ARCH_MOD[archetype];
-      const deltaHours = action.durationMinutes / 60;
-
-      // Step 1: apply decay to each vital
-      const decayed = { ...vitals };
-      for (const key of VITAL_KEYS) {
-        decayed[key] = clamp(
-          0,
-          100,
-          vitals[key] - BASE_RATE[key] * mod[key] * deltaHours,
-        );
-      }
-
-      // Step 2: apply gains on top of decayed values
-      const newVitals = { ...decayed };
+  startAction: (action: ActionInput, label: string): void => {
+    set(() => {
+      const gainPerMinute: Partial<Record<keyof Vitals, number>> = {};
       if (action.gains) {
         for (const key of VITAL_KEYS) {
-          const gain = action.gains[key] ?? 0;
-          newVitals[key] = clamp(0, 100, decayed[key] + gain);
+          const total = action.gains[key];
+          if (total !== undefined && total !== 0) {
+            gainPerMinute[key] = total / action.durationMinutes;
+          }
         }
       }
-
-      return {
-        vitals: newVitals,
-        academic: {
-          cgpa: clamp(0, 5, academic.cgpa + (action.cgpaDelta ?? 0)),
-          devotion: clamp(
-            0,
-            100,
-            academic.devotion + (action.devotionDelta ?? 0),
-          ),
-          sdcHeat: academic.sdcHeat,
-        },
-        simTimeMinutes: simTimeMinutes + action.durationMinutes,
+      const newActive: ActiveAction = {
+        id: label,
+        label,
+        remainingMinutes: action.durationMinutes,
+        gainPerMinute,
+        cgpaPerMinute:
+          action.cgpaDelta !== undefined
+            ? action.cgpaDelta / action.durationMinutes
+            : undefined,
+        devotionPerMinute:
+          action.devotionDelta !== undefined
+            ? action.devotionDelta / action.durationMinutes
+            : undefined,
       };
+      return { activeAction: newActive };
     });
-
-    void get().saveToServer();
   },
 
   saveToServer: async (): Promise<void> => {
@@ -176,5 +180,117 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!res.ok) {
       console.error("[GameStore] save failed", res.status);
     }
+  },
+
+  stopSimulationLoop: () => {
+    if (_tickId !== null) { clearInterval(_tickId); _tickId = null; }
+    if (_saveId !== null) { clearInterval(_saveId); _saveId = null; }
+  },
+
+  startSimulationLoop: () => {
+    if (_tickId !== null) return; // guard against double-start
+
+    _tickId = setInterval(() => {
+      let actionJustCompleted = false;
+      set((state) => {
+        const mod = ARCH_MOD[state.profile.archetype];
+        const dh  = TICK_GAME_MINUTES / 60;
+        const v   = { ...state.vitals };
+
+        // 1. Passive decay for 5 game minutes
+        for (const key of VITAL_KEYS) {
+          v[key] = clamp(0, 100, v[key] - BASE_RATE[key] * mod[key] * dh);
+        }
+
+        // 2. Active action gains for the same 5 game minutes (net of decay above)
+        let newActive = state.activeAction;
+        let newAcademic = state.academic;
+        if (state.activeAction !== null) {
+          const m   = Math.min(TICK_GAME_MINUTES, state.activeAction.remainingMinutes);
+          const gpm = state.activeAction.gainPerMinute;
+          for (const key of VITAL_KEYS) {
+            const g = gpm[key];
+            if (g !== undefined) v[key] = clamp(0, 100, v[key] + g * m);
+          }
+          if (state.activeAction.cgpaPerMinute !== undefined) {
+            newAcademic = { ...newAcademic, cgpa: clamp(0, 5, newAcademic.cgpa + state.activeAction.cgpaPerMinute * m) };
+          }
+          if (state.activeAction.devotionPerMinute !== undefined) {
+            newAcademic = { ...newAcademic, devotion: clamp(0, 100, newAcademic.devotion + state.activeAction.devotionPerMinute * m) };
+          }
+          const remaining = state.activeAction.remainingMinutes - m;
+          if (remaining <= 0) {
+            newActive = null;
+            actionJustCompleted = true;
+          } else {
+            newActive = { ...state.activeAction, remainingMinutes: remaining };
+          }
+        }
+
+        return {
+          vitals: v,
+          academic: newAcademic,
+          activeAction: newActive,
+          simTimeMinutes: state.simTimeMinutes + TICK_GAME_MINUTES,
+        };
+      });
+      if (actionJustCompleted) void get().saveToServer();
+    }, TICK_INTERVAL_MS);
+
+    _saveId = setInterval(() => { void get().saveToServer(); }, SAVE_INTERVAL_MS);
+  },
+
+  handleVisibilityHidden: () => {
+    _lastActiveAt = Date.now();
+    get().stopSimulationLoop();
+  },
+
+  handleVisibilityVisible: async () => {
+    const elapsed        = Date.now() - _lastActiveAt;
+    const rawGameMin     = Math.floor(elapsed / 1000); // 1 real sec = 1 game min
+    const clampedGameMin = Math.min(rawGameMin, OFFLINE_CAP);
+
+    set((state) => {
+      const mod      = ARCH_MOD[state.profile.archetype];
+      const dh       = clampedGameMin / 60;
+      const sleeping = state.spatial.isSleeping;
+      const v        = { ...state.vitals };
+
+      // Passive decay for the offline period
+      for (const key of VITAL_KEYS) {
+        const damp = sleeping && (key === "hunger" || key === "energy") ? SLEEP_DAMP : 1;
+        v[key] = clamp(0, 100, v[key] - BASE_RATE[key] * mod[key] * dh * damp);
+      }
+
+      // Active action gains for the offline period
+      let newActive = state.activeAction;
+      let newAcademic = state.academic;
+      if (state.activeAction !== null) {
+        const m   = Math.min(clampedGameMin, state.activeAction.remainingMinutes);
+        const gpm = state.activeAction.gainPerMinute;
+        for (const key of VITAL_KEYS) {
+          const g = gpm[key];
+          if (g !== undefined) v[key] = clamp(0, 100, v[key] + g * m);
+        }
+        if (state.activeAction.cgpaPerMinute !== undefined) {
+          newAcademic = { ...newAcademic, cgpa: clamp(0, 5, newAcademic.cgpa + state.activeAction.cgpaPerMinute * m) };
+        }
+        if (state.activeAction.devotionPerMinute !== undefined) {
+          newAcademic = { ...newAcademic, devotion: clamp(0, 100, newAcademic.devotion + state.activeAction.devotionPerMinute * m) };
+        }
+        const remaining = state.activeAction.remainingMinutes - m;
+        newActive = remaining <= 0 ? null : { ...state.activeAction, remainingMinutes: remaining };
+      }
+
+      return {
+        vitals: v,
+        academic: newAcademic,
+        activeAction: newActive,
+        simTimeMinutes: state.simTimeMinutes + clampedGameMin,
+      };
+    });
+
+    get().startSimulationLoop();
+    await get().saveToServer();
   },
 }));

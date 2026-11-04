@@ -3,25 +3,12 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useGameStore } from "@/lib/store/useGameStore";
-import type { ActionInput, ActiveAction, Vitals } from "@/types/game";
+import type { ActiveAction, Vitals } from "@/types/game";
+import { ACTION_PRESETS, type ActionPreset } from "@/lib/game/actionPresets";
 
 const GameCanvas = dynamic(() => import("@/components/viewport/GameCanvas"), {
   ssr: false,
 });
-
-// TUNABLE: room-action effect presets — adjust freely
-interface ActionPreset extends ActionInput {
-  label: string;
-}
-
-const ACTION_PRESETS: ActionPreset[] = [
-  { label: "Sleep", durationMinutes: 480, gains: { energy: 60 } },
-  { label: "Eat", durationMinutes: 30, gains: { hunger: 50 } },
-  { label: "Shower", durationMinutes: 20, gains: { health: 45 } },
-  { label: "Study", durationMinutes: 60, cgpaDelta: 0.02 },
-  { label: "Pray", durationMinutes: 15, devotionDelta: 10 },
-  { label: "Hang out", durationMinutes: 45, gains: { morale: 40 } },
-];
 
 const VITAL_BARS: {
   key: keyof Vitals;
@@ -293,8 +280,10 @@ export default function CampusPage() {
               <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-brand-primary/40">
                 Actions
               </p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {ACTION_PRESETS.map(({ label, ...action }) => {
+              <div className="grid grid-cols-2 gap-1.5">
+                {ACTION_PRESETS.filter((p): p is ActionPreset =>
+                  p.label === "Hang out" || p.label === "Pray"
+                ).map(({ label, ...action }) => {
                   const isActive = activeAction?.id === label;
                   return (
                     <button

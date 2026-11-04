@@ -1,6 +1,13 @@
 'use client';
 
-function BunkBed() {
+import { useState } from 'react';
+import { useGameStore } from "@/lib/store/useGameStore";
+import { ACTION_PRESETS } from "@/lib/game/actionPresets";
+
+const presetByLabel = Object.fromEntries(ACTION_PRESETS.map(p => [p.label, p]));
+
+function BunkBed({ onTrigger }: { onTrigger: () => void }) {
+  const [hovered, setHovered] = useState(false);
   const frame = '#64748b';
   const mattress = '#e2e8f0';
   const pillow = '#eab308';
@@ -10,7 +17,13 @@ function BunkBed() {
   const halfZ = 1.05;
 
   return (
-    <group position={[-3.0, 0, -1.3]}>
+    <group
+      position={[-3.0, 0, -1.3]}
+      onClick={onTrigger}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      scale={hovered ? 1.03 : 1}
+    >
       {/* 4 vertical posts */}
       <mesh castShadow position={[-halfX, postY, -halfZ]}>
         <boxGeometry args={[0.08, postH, 0.08]} />
@@ -83,13 +96,20 @@ function Wardrobe() {
   );
 }
 
-function Desk() {
+function Desk({ onTrigger }: { onTrigger: () => void }) {
+  const [hovered, setHovered] = useState(false);
   const wood = '#b08d57';
   const legs = '#8a6d3b';
   const legH = 0.71;
   const legY = legH / 2;
   return (
-    <group position={[-0.6, 0, -3.5]}>
+    <group
+      position={[-0.6, 0, -3.5]}
+      onClick={onTrigger}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      scale={hovered ? 1.03 : 1}
+    >
       {/* Tabletop */}
       <mesh castShadow position={[0, 0.75, 0]}>
         <boxGeometry args={[1.6, 0.08, 0.7]} />
@@ -116,12 +136,19 @@ function Desk() {
   );
 }
 
-function Chair() {
+function Chair({ onTrigger }: { onTrigger: () => void }) {
+  const [hovered, setHovered] = useState(false);
   const c = '#8a6d3b';
   const legH = 0.42;
   const legY = legH / 2;
   return (
-    <group position={[-0.6, 0, -2.6]}>
+    <group
+      position={[-0.6, 0, -2.6]}
+      onClick={onTrigger}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      scale={hovered ? 1.03 : 1}
+    >
       {/* Seat */}
       <mesh position={[0, 0.45, 0]}>
         <boxGeometry args={[0.5, 0.06, 0.5]} />
@@ -153,9 +180,16 @@ function Chair() {
   );
 }
 
-function Cooler() {
+function Cooler({ onTrigger }: { onTrigger: () => void }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <group position={[1.2, 0, -2.6]}>
+    <group
+      position={[1.2, 0, -2.6]}
+      onClick={onTrigger}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      scale={hovered ? 1.03 : 1}
+    >
       {/* Body */}
       <mesh position={[0, 0.2, 0]}>
         <boxGeometry args={[0.5, 0.4, 0.4]} />
@@ -170,9 +204,16 @@ function Cooler() {
   );
 }
 
-function Bucket() {
+function Bucket({ onTrigger }: { onTrigger: () => void }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <group position={[2.9, 0, 0.6]}>
+    <group
+      position={[2.9, 0, 0.6]}
+      onClick={onTrigger}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      scale={hovered ? 1.03 : 1}
+    >
       <mesh position={[0, 0.22, 0]}>
         <cylinderGeometry args={[0.32, 0.28, 0.45, 20, 1, true]} />
         <meshStandardMaterial color="#0ea5e9" />
@@ -237,14 +278,25 @@ function Toothbrush() {
 }
 
 export default function RoomFurniture() {
+  const startAction = useGameStore((s) => s.startAction);
+
+  function trigger(label: string) {
+    const preset = presetByLabel[label];
+    if (!preset) return;
+    startAction(
+      { durationMinutes: preset.durationMinutes, gains: preset.gains, cgpaDelta: preset.cgpaDelta, devotionDelta: preset.devotionDelta },
+      label,
+    );
+  }
+
   return (
     <group>
-      <BunkBed />
+      <BunkBed onTrigger={() => trigger("Sleep")} />
       <Wardrobe />
-      <Desk />
-      <Chair />
-      <Cooler />
-      <Bucket />
+      <Desk onTrigger={() => trigger("Study")} />
+      <Chair onTrigger={() => trigger("Study")} />
+      <Cooler onTrigger={() => trigger("Eat")} />
+      <Bucket onTrigger={() => trigger("Shower")} />
       <WallSocket />
       <Plate />
       <Toothbrush />

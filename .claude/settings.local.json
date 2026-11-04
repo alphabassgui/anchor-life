@@ -15,7 +15,9 @@
       "Bash(ls .env*)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(echo \"tsc exit:$?\")",
+      "Bash(echo \"lint exit:$?\")"
     ]
   }
 }

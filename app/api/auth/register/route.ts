@@ -394,7 +394,7 @@ export async function POST(request: Request): Promise<Response> {
   //    SDC Heat/skills/position use the schema's column DEFAULTs.
   const { error: simError } = await admin
     .from("student_simulation_states")
-    .insert({ student_id: studentId });
+    .insert({ student_id: studentId, current_venue: validHostel, spot_id: "bunk_01" });
 
   if (simError) {
     // Rollback: remove the student row (then the auth user) to avoid orphans.

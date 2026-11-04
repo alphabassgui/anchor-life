@@ -17,6 +17,7 @@ import {
   useGLTF,
 } from '@react-three/drei';
 import * as THREE from 'three';
+import RoomFurniture from './RoomFurniture';
 
 const TARGET_HEIGHT = 1.8;
 
@@ -184,7 +185,15 @@ export default function GameCanvas() {
         background: '#f8fafc',
       }}
     >
-      <Canvas orthographic shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
+      <Canvas
+        orthographic
+        shadows
+        dpr={[1, 2]}
+        style={{ width: '100%', height: '100%' }}
+        onCreated={({ gl }) => {
+          gl.shadowMap.type = THREE.PCFShadowMap;
+        }}
+      >
         <OrthographicCamera
           makeDefault
           position={[8, 8, 8]}
@@ -207,6 +216,7 @@ export default function GameCanvas() {
         />
         <LightingRig />
         <RoomScene />
+        <RoomFurniture />
         <ContactShadows
           position={[0, 0.01, 0]}
           opacity={0.4}

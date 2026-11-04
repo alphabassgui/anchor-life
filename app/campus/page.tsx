@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useGameStore } from "@/lib/store/useGameStore";
 import type { ActionInput, ActiveAction, Vitals } from "@/types/game";
+
+const GameCanvas = dynamic(() => import("@/components/viewport/GameCanvas"), {
+  ssr: false,
+});
 
 // TUNABLE: room-action effect presets — adjust freely
 interface ActionPreset extends ActionInput {
@@ -124,13 +129,18 @@ export default function CampusPage() {
   const moodColor = getMoodColor(vitals);
 
   return (
-    <main className="min-h-screen bg-brand-surface font-sans">
+    <>
+      {/* ── Full-screen 3D canvas — behind everything (z-0) ── */}
+      <GameCanvas />
+
+      {/* ── DOM overlay — pointer-events-none so the canvas is never blocked ── */}
+      <div className="pointer-events-none fixed inset-0 z-10">
       {/* ── Collapsed chip (always rendered when card is closed) ── */}
       {!isOpen && (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 left-4 z-20 flex w-64 flex-col gap-2 rounded-2xl bg-white px-4 py-3 shadow-lg ring-1 ring-brand-subtle transition-transform active:scale-95"
+          className="pointer-events-auto fixed bottom-6 left-4 z-20 flex w-64 flex-col gap-2 rounded-2xl bg-white px-4 py-3 shadow-lg ring-1 ring-brand-subtle transition-transform active:scale-95"
         >
           {/* Handle row */}
           <div className="flex items-center gap-2.5">
@@ -172,11 +182,11 @@ export default function CampusPage() {
             type="button"
             aria-label="Close player card"
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 z-10 w-full bg-brand-primary/10 backdrop-blur-[2px]"
+            className="pointer-events-auto fixed inset-0 z-10 w-full bg-brand-primary/10 backdrop-blur-[2px]"
           />
 
           {/* Card */}
-          <div className="fixed bottom-4 left-4 right-4 z-20 max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl ring-1 ring-brand-subtle sm:right-auto sm:w-80">
+          <div className="pointer-events-auto fixed bottom-4 left-4 right-4 z-20 max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl ring-1 ring-brand-subtle sm:right-auto sm:w-80">
             {/* Header: avatar · handle · mood · clock · close */}
             <div className="mb-5 flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-accent text-base font-bold text-brand-primary">
@@ -306,6 +316,7 @@ export default function CampusPage() {
           </div>
         </>
       )}
-    </main>
+      </div>
+    </>
   );
 }

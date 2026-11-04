@@ -18,7 +18,12 @@
       "Bash(git push *)",
       "Bash(echo \"tsc exit:$?\")",
       "Bash(echo \"lint exit:$?\")",
-      "Bash(npx --no-install tsc --noEmit)"
+      "Bash(npx --no-install tsc --noEmit)",
+      "Bash(echo \"PID:$!\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/player/hustle -H 'Content-Type: application/json' -d not-json)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:3000/api/player/hustle -H 'Content-Type: application/json' -d '{\"hustle\":\"nope\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/player/hustle -H 'Content-Type: application/json' -d '{\"hustle\":\"coding_gig\"}')"
     ]
   }
 }

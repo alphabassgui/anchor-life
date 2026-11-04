@@ -75,7 +75,7 @@ interface GameActions {
   stopSimulationLoop: () => void;
   handleVisibilityHidden: () => void;
   handleVisibilityVisible: () => Promise<void>;
-  callMummy: () => void;
+  callMummy: () => Promise<void>;
 }
 
 type GameStore = GameState & GameActions;
@@ -275,46 +275,59 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     get().stopSimulationLoop();
   },
 
-  callMummy: (): void => {
-    const { profile, academic, simTimeMinutes, lastAllowanceWeek } = get();
-    const week = Math.floor(simTimeMinutes / 10080);
+  callMummy: async (): Promise<void> => {
+    let res: Response;
+    try {
+      res = await fetch("/api/player/allowance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      set({ allowanceMessage: "Couldn't reach Mummy — try again." });
+      return;
+    }
 
-    if (week <= lastAllowanceWeek) {
+    const json = await res.json() as {
+      success: boolean;
+      data?: {
+        granted: boolean;
+        reason?: string;
+        amount?: number;
+        sermon?: boolean;
+        newWallet?: number;
+        week?: number;
+      };
+    };
+
+    if (!res.ok || !json.success) {
+      set({ allowanceMessage: "Couldn't reach Mummy — try again." });
+      return;
+    }
+
+    const d = json.data!;
+
+    if (!d.granted) {
       set({ allowanceMessage: "You already called Mummy this week." });
       return;
     }
 
-    let amount: number;
-    let energyPenalty: number;
-
-    if (profile.archetype === "nepo_baby") {
-      amount = 50000;
-      energyPenalty = 0;
-    } else if (academic.sdcHeat > 1 || academic.cgpa < 2.50) {
-      amount = 2000;
-      energyPenalty = 20;
-    } else if (academic.cgpa >= 3.50 && academic.devotion >= 80) {
-      amount = 10000;
-      energyPenalty = 0;
-    } else {
-      amount = 5000;
-      energyPenalty = 0;
-    }
-
+    const { vitals } = get();
     set((state) => ({
-      profile: { ...state.profile, walletBalance: state.profile.walletBalance + amount },
-      vitals: { ...state.vitals, energy: Math.max(0, state.vitals.energy - energyPenalty) },
-      lastAllowanceWeek: week,
-      pendingWalletDelta: state.pendingWalletDelta + amount,
-      pendingWalletReason: "allowance",
-      pendingWalletRef: `allowance_week_${week}`,
-      allowanceMessage:
-        energyPenalty > 0
-          ? `Mummy lectured you — ₦${amount.toLocaleString("en-NG")} and a sermon (−${energyPenalty} energy)`
-          : `Mummy sent ₦${amount.toLocaleString("en-NG")} 💸`,
+      profile: { ...state.profile, walletBalance: d.newWallet! },
+      vitals: d.sermon
+        ? { ...state.vitals, energy: Math.max(0, vitals.energy - 20) }
+        : state.vitals,
+      lastAllowanceWeek: d.week!,
+      allowanceMessage: d.sermon
+        ? `Mummy lectured you — ₦${d.amount!.toLocaleString("en-NG")} and a sermon (−20 energy)`
+        : `Mummy sent ₦${d.amount!.toLocaleString("en-NG")} 💸`,
     }));
 
-    void get().saveToServer();
+    // Persist the energy drop if a sermon was delivered (wallet is already server-synced;
+    // pendingWalletDelta stays 0 so this save does not credit money again).
+    if (d.sermon) {
+      void get().saveToServer();
+    }
   },
 
   handleVisibilityVisible: async () => {

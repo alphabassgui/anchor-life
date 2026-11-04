@@ -305,7 +305,7 @@ export default function CampusPage() {
               </div>
               <button
                 type="button"
-                onClick={callMummy}
+                onClick={() => { void callMummy(); }}
                 className="mt-1.5 w-full rounded-xl bg-brand-surface px-2 py-2.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-accent active:scale-95"
               >
                 📞 Call Mummy

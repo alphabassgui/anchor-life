@@ -8,46 +8,20 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, OrthographicCamera, useGLTF } from '@react-three/drei';
+import { Canvas } from '@react-three/fiber';
+import {
+  ContactShadows,
+  Loader,
+  OrbitControls,
+  OrthographicCamera,
+  useGLTF,
+} from '@react-three/drei';
 import * as THREE from 'three';
 
-// ── Camera ───────────────────────────────────────────────────────────────────
-
-/** Responsive OrthographicCamera per design-system §2.2. */
-function IsoCamera() {
-  const ref = useRef<THREE.OrthographicCamera>(null);
-  const { size } = useThree();
-
-  // Set initial position once — OrbitControls owns it after the first frame.
-  useEffect(() => {
-    const cam = ref.current;
-    if (!cam) return;
-    cam.position.set(20, 20, 20);
-    cam.lookAt(0, 0, 0);
-  }, []);
-
-  // Update frustum on resize only (position is not touched here).
-  useEffect(() => {
-    const cam = ref.current;
-    if (!cam) return;
-    const aspect = size.width / size.height;
-    const fs = aspect < 0.6 ? 16 : aspect <= 1.0 ? 13 : 10;
-    cam.left = -(fs * aspect) / 2;
-    cam.right = (fs * aspect) / 2;
-    cam.top = fs / 2;
-    cam.bottom = -fs / 2;
-    cam.near = 0.1;
-    cam.far = 1000;
-    cam.updateProjectionMatrix();
-  }, [size]);
-
-  return <OrthographicCamera ref={ref} makeDefault />;
-}
+const TARGET_HEIGHT = 1.8;
 
 // ── Lighting ─────────────────────────────────────────────────────────────────
 
-/** Lighting rig per design-system §2.3. */
 function LightingRig() {
   const lightRef = useRef<THREE.DirectionalLight>(null);
 
@@ -67,11 +41,11 @@ function LightingRig() {
 
   return (
     <>
-      {/* AmbientLight #F8FAFC 0.75 */}
+      {/* Ambient #F8FAFC 0.75 */}
       <ambientLight color="#F8FAFC" intensity={0.75} />
-      {/* HemisphereLight sky #E0F2FE / ground #FEF3C7 0.45 */}
+      {/* Hemisphere sky #E0F2FE / ground #FEF3C7 0.45 */}
       <hemisphereLight args={['#E0F2FE', '#FEF3C7', 0.45]} />
-      {/* DirectionalLight #FFFBEB 1.2 at (15,25,10) with 1024² soft shadows */}
+      {/* Key directional — warm, casts shadows */}
       <directionalLight
         ref={lightRef}
         color="#FFFBEB"
@@ -79,6 +53,8 @@ function LightingRig() {
         position={[15, 25, 10]}
         castShadow
       />
+      {/* Cool fill from opposite side — no shadow */}
+      <directionalLight color="#c8d8f0" intensity={0.4} position={[-6, 10, -6]} />
     </>
   );
 }
@@ -89,25 +65,25 @@ function LightingRig() {
 function RoomScene() {
   return (
     <group>
-      {/* Floor base — warm cream tile */}
+      {/* Floor — warm wood tone */}
       <mesh receiveShadow position={[0, -0.05, 0]}>
         <boxGeometry args={[8, 0.1, 8]} />
-        <meshStandardMaterial color="#EDE9D0" />
+        <meshStandardMaterial color="#d6c3a5" />
       </mesh>
 
-      {/* Tile grid overlay — 1 unit per tile */}
+      {/* Tile grid overlay */}
       <gridHelper args={[8, 8, '#CEC7A8', '#CEC7A8']} position={[0, 0.001, 0]} />
 
-      {/* Back wall — along Z face */}
-      <mesh receiveShadow position={[0, 1.45, -4]}>
-        <boxGeometry args={[8.1, 3, 0.1]} />
-        <meshStandardMaterial color="#EAE6DC" />
+      {/* Back wall (Z face) — soft off-white */}
+      <mesh receiveShadow position={[0, 2.25, -4]}>
+        <boxGeometry args={[8.1, 4.5, 0.1]} />
+        <meshStandardMaterial color="#eef2f7" />
       </mesh>
 
-      {/* Side wall — along X face */}
-      <mesh receiveShadow position={[-4, 1.45, 0]}>
-        <boxGeometry args={[0.1, 3, 8.1]} />
-        <meshStandardMaterial color="#E0DBD0" />
+      {/* Left wall (X face) — soft off-white */}
+      <mesh receiveShadow position={[-4, 2.25, 0]}>
+        <boxGeometry args={[0.1, 4.5, 8.1]} />
+        <meshStandardMaterial color="#eef2f7" />
       </mesh>
     </group>
   );
@@ -115,12 +91,24 @@ function RoomScene() {
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
-/** Loads placeholder.glb and tints every mesh (zero-albedo texture invariant). */
+/** Loads placeholder.glb, normalizes height, tints every mesh (zero-albedo invariant). */
 function GlbAvatar() {
   const { scene } = useGLTF('/models/placeholder.glb');
 
   const tinted = useMemo(() => {
     const clone = scene.clone(true);
+
+    // Normalize height to TARGET_HEIGHT with feet at y=0
+    const bbox = new THREE.Box3().setFromObject(clone);
+    const size = new THREE.Vector3();
+    bbox.getSize(size);
+    if (size.y > 0) {
+      const scale = TARGET_HEIGHT / size.y;
+      clone.scale.setScalar(scale);
+      const bbox2 = new THREE.Box3().setFromObject(clone);
+      clone.position.y = -bbox2.min.y;
+    }
+
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.material = new THREE.MeshStandardMaterial({ color: '#8d5524' });
@@ -185,31 +173,56 @@ class AvatarBoundary extends Component<
 
 export default function GameCanvas() {
   return (
-    <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, zIndex: 0 }}>
-      <Canvas
-        orthographic
-        shadows
-        dpr={[1, 2]}
-        style={{ width: '100%', height: '100%' }}
-      >
-        <IsoCamera />
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        zIndex: 0,
+        background: '#f8fafc',
+      }}
+    >
+      <Canvas orthographic shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
+        <OrthographicCamera
+          makeDefault
+          position={[8, 8, 8]}
+          zoom={80}
+          near={0.1}
+          far={1000}
+        />
         <OrbitControls
           enablePan={false}
           enableZoom={true}
-          target={[0, 0, 0]}
-          minPolarAngle={Math.PI / 6}
-          maxPolarAngle={Math.PI / 2.2}
+          target={[0, 1, 0]}
+          minPolarAngle={Math.PI / 3}
+          maxPolarAngle={(80 * Math.PI) / 180}
+          minAzimuthAngle={-Math.PI / 7.2}
+          maxAzimuthAngle={Math.PI / 7.2}
+          minZoom={40}
+          maxZoom={120}
           enableDamping
           dampingFactor={0.08}
         />
         <LightingRig />
         <RoomScene />
+        <ContactShadows
+          position={[0, 0.01, 0]}
+          opacity={0.4}
+          scale={4}
+          blur={2}
+          far={2}
+          resolution={256}
+          color="#000000"
+        />
         <AvatarBoundary fallback={<PrimitiveFallback />}>
           <Suspense fallback={<PrimitiveFallback />}>
             <GlbAvatar />
           </Suspense>
         </AvatarBoundary>
       </Canvas>
+      <Loader />
     </div>
   );
 }

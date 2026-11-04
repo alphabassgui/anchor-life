@@ -15,13 +15,11 @@
   --color-brand-surface: #f8fafc; /* Crisp light card background */
   --color-brand-subtle: #e2e8f0; /* Borders, dividers, inactive tabs */
 
-  /* 6 Biological Need Indicators (9-stat / 6-need model — do not collapse) */
-  --color-meter-hunger: #f97316; /* Vibrant Orange (Jollof / Food) */
-  --color-meter-energy: #3b82f6; /* Electric Blue (Rest / Battery) */
-  --color-meter-hygiene: #06b6d4; /* Fresh Cyan (Water / Cleanliness) */
-  --color-meter-bladder: #a855f7; /* Soft Purple (Restroom urgency) */
-  --color-meter-fun: #ec4899; /* Bubblegum Pink (Sports / Entertainment) */
-  --color-meter-social: #10b981; /* Emerald Green (Peer interactions) */
+  /* 4 Vital Meters (4-vital model — hunger, energy, morale, health) */
+  --color-meter-hunger: #f97316; /* Vibrant Orange */
+  --color-meter-energy: #3b82f6; /* Electric Blue */
+  --color-meter-morale: #ec4899; /* Bubblegum Pink (Fun + Social combined) */
+  --color-meter-health: #06b6d4; /* Fresh Cyan (Hygiene / Vitality combined) */
 
   /* Campus Status & Disciplinary */
   --color-status-cgpa: #6366f1; /* Academic Indigo */
@@ -88,15 +86,9 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Anchor Life is explicitly LIGHT-themed — no dark-mode override. */
+  --background: #f8fafc; /* brand-surface cream */
+  --foreground: #0f172a; /* Anchor Navy */
 }
 
 body {

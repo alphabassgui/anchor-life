@@ -81,6 +81,8 @@ Unit scale 1 world unit = 1m = 1 tile; avatar 1.75 units; bunk 1×2×1.6. Budget
 
 ## 4. 2D DOM UI Overlay (Tailwind)
 
+**App Theme: LIGHT** — card surfaces `#FFFFFF / #F8FAFC`, body text `#0F172A` (Anchor Navy), borders `#E2E8F0`, accent `#EAB308` (Gold). No dark-slate backgrounds in any UI component.
+
 Overlay container `pointer-events-none`; interactive children `pointer-events-auto`. Layout: Top Status Bar `[Day/Time] [Devotion/CGPA] [4 Vital Bars] [Wallet]`; transparent 3D viewport; centered encounter modal; bottom dock `[🛏️ Hostel] [🛍️ Buy] [🗺️ Campus] [📱 Phone]`.
 
 ### 4.2 Vital Meter Tray — exactly 4 vital bars
@@ -97,7 +99,7 @@ export const NeedBar: React.FC<{ label: string; value: number; colorClass: strin
   ({ label, value, colorClass, icon }) => (
     <div className="flex items-center gap-1.5 w-full">
       <span className="text-xs" title={label}>{icon}</span>
-      <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+      <div className="flex-1 h-2 bg-brand-subtle rounded-full overflow-hidden">
         <div className={`h-full transition-all duration-500 rounded-full ${colorClass}`}
              style={{ width: `${Math.max(4, Math.min(100, value))}%` }} />
       </div>
@@ -105,7 +107,11 @@ export const NeedBar: React.FC<{ label: string; value: number; colorClass: strin
   );
 ```
 
-Core components (full implementations retained from prior spec): `TopStatusBar` (clock + CGPA + Devotion + Heat stars + wallet), `EncounterModal` (bribe slider / surrender / plead), `BottomDock` (4 tabs + unread badge). All responsive down to 360px.
+Core component light-palette style tokens (all responsive to 360px):
+
+- **TopStatusBar** — `bg-white ring-1 ring-brand-subtle`, text `text-brand-primary`, clock `font-mono text-xs text-brand-primary/60`, accent values `text-brand-accent`.
+- **EncounterModal** — `bg-white rounded-3xl shadow-2xl ring-1 ring-brand-subtle`, header `text-brand-primary font-bold`, body `text-brand-primary/70`, CTA button `bg-brand-primary text-white hover:bg-brand-accent hover:text-brand-primary`.
+- **BottomDock** — `bg-white/95 backdrop-blur-sm ring-1 ring-brand-subtle`, active tab `text-brand-accent`, inactive `text-brand-primary/40`, badge `bg-status-heat text-white`.
 
 ---
 

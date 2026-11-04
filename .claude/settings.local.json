@@ -17,7 +17,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(echo \"tsc exit:$?\")",
-      "Bash(echo \"lint exit:$?\")"
+      "Bash(echo \"lint exit:$?\")",
+      "Bash(npx --no-install tsc --noEmit)"
     ]
   }
 }

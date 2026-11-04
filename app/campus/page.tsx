@@ -69,12 +69,14 @@ export default function CampusPage() {
     academic,
     simTimeMinutes,
     activeAction,
+    allowanceMessage,
     hydrate,
     startAction,
     startSimulationLoop,
     stopSimulationLoop,
     handleVisibilityHidden,
     handleVisibilityVisible,
+    callMummy,
   } = useGameStore();
 
   useEffect(() => {
@@ -301,6 +303,16 @@ export default function CampusPage() {
                   );
                 })}
               </div>
+              <button
+                type="button"
+                onClick={callMummy}
+                className="mt-1.5 w-full rounded-xl bg-brand-surface px-2 py-2.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-accent active:scale-95"
+              >
+                📞 Call Mummy
+              </button>
+              {allowanceMessage !== null && (
+                <p className="mt-1.5 text-xs text-brand-primary/70">{allowanceMessage}</p>
+              )}
             </div>
           </div>
         </>

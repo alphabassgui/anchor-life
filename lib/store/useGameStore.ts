@@ -75,6 +75,7 @@ interface GameActions {
   stopSimulationLoop: () => void;
   handleVisibilityHidden: () => void;
   handleVisibilityVisible: () => Promise<void>;
+  callMummy: () => void;
 }
 
 type GameStore = GameState & GameActions;
@@ -92,6 +93,11 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   simTimeMinutes: 0,
   loaded: false,
   activeAction: null,
+  lastAllowanceWeek: -1,
+  pendingWalletDelta: 0,
+  pendingWalletReason: "action",
+  pendingWalletRef: null,
+  allowanceMessage: null,
 
   hydrate: (data: PlayerStateApiData): void => {
     set({
@@ -149,7 +155,15 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   saveToServer: async (): Promise<void> => {
-    const { vitals, academic, spatial, simTimeMinutes } = get();
+    const {
+      vitals,
+      academic,
+      spatial,
+      simTimeMinutes,
+      pendingWalletDelta,
+      pendingWalletReason,
+      pendingWalletRef,
+    } = get();
 
     const moodlets: Moodlet[] = [];
 
@@ -168,7 +182,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         isSleeping: spatial.isSleeping,
       },
       moodlets,
-      financialDiff: { walletDelta: 0, bankDelta: 0, reason: "action" },
+      financialDiff: {
+        walletDelta: pendingWalletDelta,
+        bankDelta: 0,
+        reason: pendingWalletReason,
+        ...(pendingWalletRef ? { referenceId: pendingWalletRef } : {}),
+      },
     };
 
     const res = await fetch("/api/player/save", {
@@ -177,7 +196,18 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       body: JSON.stringify(body),
     });
 
-    if (!res.ok) {
+    if (res.ok) {
+      const json = await res.json() as { data?: { syncedWallet?: number } };
+      const synced = json.data?.syncedWallet;
+      if (typeof synced === "number") {
+        set((state) => ({
+          profile: { ...state.profile, walletBalance: synced },
+          pendingWalletDelta: 0,
+          pendingWalletReason: "action",
+          pendingWalletRef: null,
+        }));
+      }
+    } else {
       console.error("[GameStore] save failed", res.status);
     }
   },
@@ -243,6 +273,48 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   handleVisibilityHidden: () => {
     _lastActiveAt = Date.now();
     get().stopSimulationLoop();
+  },
+
+  callMummy: (): void => {
+    const { profile, academic, simTimeMinutes, lastAllowanceWeek } = get();
+    const week = Math.floor(simTimeMinutes / 10080);
+
+    if (week <= lastAllowanceWeek) {
+      set({ allowanceMessage: "You already called Mummy this week." });
+      return;
+    }
+
+    let amount: number;
+    let energyPenalty: number;
+
+    if (profile.archetype === "nepo_baby") {
+      amount = 50000;
+      energyPenalty = 0;
+    } else if (academic.sdcHeat > 1 || academic.cgpa < 2.50) {
+      amount = 2000;
+      energyPenalty = 20;
+    } else if (academic.cgpa >= 3.50 && academic.devotion >= 80) {
+      amount = 10000;
+      energyPenalty = 0;
+    } else {
+      amount = 5000;
+      energyPenalty = 0;
+    }
+
+    set((state) => ({
+      profile: { ...state.profile, walletBalance: state.profile.walletBalance + amount },
+      vitals: { ...state.vitals, energy: Math.max(0, state.vitals.energy - energyPenalty) },
+      lastAllowanceWeek: week,
+      pendingWalletDelta: state.pendingWalletDelta + amount,
+      pendingWalletReason: "allowance",
+      pendingWalletRef: `allowance_week_${week}`,
+      allowanceMessage:
+        energyPenalty > 0
+          ? `Mummy lectured you — ₦${amount.toLocaleString("en-NG")} and a sermon (−${energyPenalty} energy)`
+          : `Mummy sent ₦${amount.toLocaleString("en-NG")} 💸`,
+    }));
+
+    void get().saveToServer();
   },
 
   handleVisibilityVisible: async () => {

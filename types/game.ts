@@ -75,4 +75,9 @@ export interface GameState {
   simTimeMinutes: number;
   loaded: boolean;
   activeAction: ActiveAction | null;
+  lastAllowanceWeek: number;
+  pendingWalletDelta: number;
+  pendingWalletReason: string;
+  pendingWalletRef: string | null;
+  allowanceMessage: string | null;
 }

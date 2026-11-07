@@ -51,6 +51,12 @@ export interface PlayerStateApiData {
     cgpa: number;
     devotion: number;
     sdcHeat: number;
+    skills?: {
+      coding: number;
+      charisma: number;
+      fitness: number;
+      hustle: number;
+    };
     currentVenue: string;
     spotId: string | null;
     isSleeping: boolean;
@@ -81,4 +87,6 @@ export interface GameState {
   pendingWalletRef: string | null;
   allowanceMessage: string | null;
   hustleMessage: string | null;
+  skillCoding: number;
+  studyMessage: string | null;
 }

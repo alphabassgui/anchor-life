@@ -71,6 +71,8 @@ export default function CampusPage() {
     activeAction,
     allowanceMessage,
     hustleMessage,
+    skillCoding,
+    studyMessage,
     hydrate,
     startAction,
     startSimulationLoop,
@@ -79,6 +81,7 @@ export default function CampusPage() {
     handleVisibilityVisible,
     callMummy,
     runCodingGig,
+    study,
   } = useGameStore();
 
   useEffect(() => {
@@ -277,6 +280,12 @@ export default function CampusPage() {
                   ₦{profile.walletBalance.toLocaleString("en-NG")}
                 </p>
               </div>
+              <div className="rounded-xl bg-brand-surface p-2.5">
+                <p className="text-[10px] text-brand-primary/40">Coding Skill</p>
+                <p className="font-mono text-base font-bold text-status-cgpa">
+                  {skillCoding.toFixed(2)}
+                </p>
+              </div>
             </div>
 
             {/* Actions */}
@@ -324,6 +333,16 @@ export default function CampusPage() {
               </button>
               {hustleMessage !== null && (
                 <p className="mt-1.5 text-xs text-brand-primary/70">{hustleMessage}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => { void study(); }}
+                className="mt-1.5 w-full rounded-xl bg-brand-surface px-2 py-2.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-accent active:scale-95"
+              >
+                📚 Study
+              </button>
+              {studyMessage !== null && (
+                <p className="mt-1.5 text-xs text-brand-primary/70">{studyMessage}</p>
               )}
             </div>
           </div>

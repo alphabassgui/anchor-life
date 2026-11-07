@@ -11,6 +11,7 @@ import type {
   Spatial,
   Vitals,
 } from "@/types/game";
+import { ACTION_PRESETS } from "@/lib/game/actionPresets";
 
 // TUNABLE: base hourly decay rates (%/hr) — source: .docs/03_GAME_ENGINE.md §2.1
 const BASE_RATE: Record<keyof Vitals, number> = {
@@ -77,6 +78,7 @@ interface GameActions {
   handleVisibilityVisible: () => Promise<void>;
   callMummy: () => Promise<void>;
   runCodingGig: () => Promise<void>;
+  study: () => Promise<void>;
 }
 
 type GameStore = GameState & GameActions;
@@ -100,6 +102,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   pendingWalletRef: null,
   allowanceMessage: null,
   hustleMessage: null,
+  skillCoding: 0,
+  studyMessage: null,
 
   hydrate: (data: PlayerStateApiData): void => {
     set({
@@ -123,6 +127,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       },
       // sim_time_minutes is not returned by the state route — starts at Day 1 · 00:00
       simTimeMinutes: 0,
+      skillCoding: data.simulation.skills?.coding ?? 0,
       loaded: true,
     });
   },
@@ -387,6 +392,41 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     //   sim-clock field is confirmed (deferred — do not implement now).
 
     void get().saveToServer();
+  },
+
+  study: async (): Promise<void> => {
+    // Start the cgpa-accruing action immediately (preserves existing Study behavior).
+    const studyPreset = ACTION_PRESETS.find((p) => p.label === "Study");
+    if (studyPreset) {
+      const { label, ...action } = studyPreset;
+      get().startAction(action, label);
+    }
+
+    let res: Response;
+    try {
+      res = await fetch("/api/player/study", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      set({ studyMessage: "Study session failed — try again." });
+      return;
+    }
+
+    const json = await res.json() as {
+      success: boolean;
+      data?: {
+        skill: string;
+        newSkillCoding: number;
+      };
+    };
+
+    if (!res.ok || !json.success || !json.data) {
+      set({ studyMessage: "Study session failed — try again." });
+      return;
+    }
+
+    set({ skillCoding: json.data.newSkillCoding, studyMessage: `Coding skill: ${json.data.newSkillCoding.toFixed(2)} / 10 📈` });
   },
 
   handleVisibilityVisible: async () => {

@@ -89,4 +89,6 @@ export interface GameState {
   hustleMessage: string | null;
   skillCoding: number;
   studyMessage: string | null;
+  hoveredAction: string | null;
+  setHoveredAction: (label: string | null) => void;
 }

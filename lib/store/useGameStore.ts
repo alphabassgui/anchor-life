@@ -104,6 +104,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   hustleMessage: null,
   skillCoding: 0,
   studyMessage: null,
+  hoveredAction: null,
+  setHoveredAction: (label) => set({ hoveredAction: label }),
 
   hydrate: (data: PlayerStateApiData): void => {
     set({

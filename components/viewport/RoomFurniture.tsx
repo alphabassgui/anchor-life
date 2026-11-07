@@ -6,8 +6,9 @@ import { ACTION_PRESETS } from "@/lib/game/actionPresets";
 
 const presetByLabel = Object.fromEntries(ACTION_PRESETS.map(p => [p.label, p]));
 
-function BunkBed({ onTrigger }: { onTrigger: () => void }) {
+function BunkBed({ onTrigger, label }: { onTrigger: () => void; label: string }) {
   const [hovered, setHovered] = useState(false);
+  const setHoveredAction = useGameStore((s) => s.setHoveredAction);
   const frame = '#64748b';
   const mattress = '#e2e8f0';
   const pillow = '#eab308';
@@ -20,8 +21,8 @@ function BunkBed({ onTrigger }: { onTrigger: () => void }) {
     <group
       position={[-3.0, 0, -1.3]}
       onClick={onTrigger}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; setHoveredAction(label); }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; setHoveredAction(null); }}
       scale={hovered ? 1.03 : 1}
     >
       {/* 4 vertical posts */}
@@ -96,8 +97,9 @@ function Wardrobe() {
   );
 }
 
-function Desk({ onTrigger }: { onTrigger: () => void }) {
+function Desk({ onTrigger, label }: { onTrigger: () => void; label: string }) {
   const [hovered, setHovered] = useState(false);
+  const setHoveredAction = useGameStore((s) => s.setHoveredAction);
   const wood = '#b08d57';
   const legs = '#8a6d3b';
   const legH = 0.71;
@@ -106,8 +108,8 @@ function Desk({ onTrigger }: { onTrigger: () => void }) {
     <group
       position={[-0.6, 0, -3.5]}
       onClick={onTrigger}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; setHoveredAction(label); }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; setHoveredAction(null); }}
       scale={hovered ? 1.03 : 1}
     >
       {/* Tabletop */}
@@ -136,8 +138,9 @@ function Desk({ onTrigger }: { onTrigger: () => void }) {
   );
 }
 
-function Chair({ onTrigger }: { onTrigger: () => void }) {
+function Chair({ onTrigger, label }: { onTrigger: () => void; label: string }) {
   const [hovered, setHovered] = useState(false);
+  const setHoveredAction = useGameStore((s) => s.setHoveredAction);
   const c = '#8a6d3b';
   const legH = 0.42;
   const legY = legH / 2;
@@ -145,8 +148,8 @@ function Chair({ onTrigger }: { onTrigger: () => void }) {
     <group
       position={[-0.6, 0, -2.6]}
       onClick={onTrigger}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; setHoveredAction(label); }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; setHoveredAction(null); }}
       scale={hovered ? 1.03 : 1}
     >
       {/* Seat */}
@@ -180,14 +183,15 @@ function Chair({ onTrigger }: { onTrigger: () => void }) {
   );
 }
 
-function Cooler({ onTrigger }: { onTrigger: () => void }) {
+function Cooler({ onTrigger, label }: { onTrigger: () => void; label: string }) {
   const [hovered, setHovered] = useState(false);
+  const setHoveredAction = useGameStore((s) => s.setHoveredAction);
   return (
     <group
       position={[1.2, 0, -2.6]}
       onClick={onTrigger}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; setHoveredAction(label); }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; setHoveredAction(null); }}
       scale={hovered ? 1.03 : 1}
     >
       {/* Body */}
@@ -204,14 +208,15 @@ function Cooler({ onTrigger }: { onTrigger: () => void }) {
   );
 }
 
-function Bucket({ onTrigger }: { onTrigger: () => void }) {
+function Bucket({ onTrigger, label }: { onTrigger: () => void; label: string }) {
   const [hovered, setHovered] = useState(false);
+  const setHoveredAction = useGameStore((s) => s.setHoveredAction);
   return (
     <group
       position={[2.9, 0, 0.6]}
       onClick={onTrigger}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; setHoveredAction(label); }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; setHoveredAction(null); }}
       scale={hovered ? 1.03 : 1}
     >
       <mesh position={[0, 0.22, 0]}>
@@ -291,12 +296,12 @@ export default function RoomFurniture() {
 
   return (
     <group>
-      <BunkBed onTrigger={() => trigger("Sleep")} />
+      <BunkBed onTrigger={() => trigger("Sleep")} label="Sleep" />
       <Wardrobe />
-      <Desk onTrigger={() => trigger("Study")} />
-      <Chair onTrigger={() => trigger("Study")} />
-      <Cooler onTrigger={() => trigger("Eat")} />
-      <Bucket onTrigger={() => trigger("Shower")} />
+      <Desk onTrigger={() => trigger("Study")} label="Study" />
+      <Chair onTrigger={() => trigger("Study")} label="Study" />
+      <Cooler onTrigger={() => trigger("Eat")} label="Eat" />
+      <Bucket onTrigger={() => trigger("Shower")} label="Shower" />
       <WallSocket />
       <Plate />
       <Toothbrush />

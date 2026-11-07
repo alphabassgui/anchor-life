@@ -39,6 +39,13 @@ function getMoodLabel(vitals: Vitals): string {
   return "Thriving";
 }
 
+const CAPTION_MAP: Record<string, string> = {
+  Sleep:  "😴 Sleep — restore energy",
+  Study:  "📖 Study — raise CGPA & coding skill",
+  Eat:    "🍽️ Eat — restore hunger",
+  Shower: "🚿 Shower — restore health",
+};
+
 function getMoodColor(vitals: Vitals): string {
   const lowest = Math.min(vitals.hunger, vitals.energy, vitals.morale, vitals.health);
   if (lowest < 40) return "text-status-heat";
@@ -82,6 +89,7 @@ export default function CampusPage() {
     callMummy,
     runCodingGig,
     study,
+    hoveredAction,
   } = useGameStore();
 
   useEffect(() => {
@@ -129,6 +137,13 @@ export default function CampusPage() {
 
       {/* ── DOM overlay — pointer-events-none so the canvas is never blocked ── */}
       <div className="pointer-events-none fixed inset-0 z-10">
+      {/* ── Hover caption — passive, bottom-center ── */}
+      {hoveredAction !== null && CAPTION_MAP[hoveredAction] != null && (
+        <div className="pointer-events-none fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-brand-surface px-4 py-2 font-mono text-xs text-brand-primary/70 shadow ring-1 ring-brand-subtle">
+          {CAPTION_MAP[hoveredAction]}
+        </div>
+      )}
+
       {/* ── Collapsed chip (always rendered when card is closed) ── */}
       {!isOpen && (
         <button

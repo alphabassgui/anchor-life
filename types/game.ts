@@ -80,4 +80,5 @@ export interface GameState {
   pendingWalletReason: string;
   pendingWalletRef: string | null;
   allowanceMessage: string | null;
+  hustleMessage: string | null;
 }

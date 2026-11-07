@@ -70,6 +70,7 @@ export default function CampusPage() {
     simTimeMinutes,
     activeAction,
     allowanceMessage,
+    hustleMessage,
     hydrate,
     startAction,
     startSimulationLoop,
@@ -77,6 +78,7 @@ export default function CampusPage() {
     handleVisibilityHidden,
     handleVisibilityVisible,
     callMummy,
+    runCodingGig,
   } = useGameStore();
 
   useEffect(() => {
@@ -312,6 +314,16 @@ export default function CampusPage() {
               </button>
               {allowanceMessage !== null && (
                 <p className="mt-1.5 text-xs text-brand-primary/70">{allowanceMessage}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => { void runCodingGig(); }}
+                className="mt-1.5 w-full rounded-xl bg-brand-surface px-2 py-2.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-accent active:scale-95"
+              >
+                💻 Coding Gig
+              </button>
+              {hustleMessage !== null && (
+                <p className="mt-1.5 text-xs text-brand-primary/70">{hustleMessage}</p>
               )}
             </div>
           </div>

@@ -76,6 +76,7 @@ interface GameActions {
   handleVisibilityHidden: () => void;
   handleVisibilityVisible: () => Promise<void>;
   callMummy: () => Promise<void>;
+  runCodingGig: () => Promise<void>;
 }
 
 type GameStore = GameState & GameActions;
@@ -98,6 +99,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   pendingWalletReason: "action",
   pendingWalletRef: null,
   allowanceMessage: null,
+  hustleMessage: null,
 
   hydrate: (data: PlayerStateApiData): void => {
     set({
@@ -328,6 +330,63 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (d.sermon) {
       void get().saveToServer();
     }
+  },
+
+  runCodingGig: async (): Promise<void> => {
+    const { vitals } = get();
+    if (vitals.energy < 35) {
+      set({ hustleMessage: "Too exhausted for a gig — rest first. 🥱" });
+      return;
+    }
+
+    let res: Response;
+    try {
+      res = await fetch("/api/player/hustle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hustle: "coding_gig" }),
+      });
+    } catch {
+      set({ hustleMessage: "Gig fell through — try again." });
+      return;
+    }
+
+    const json = await res.json() as {
+      success: boolean;
+      data?: {
+        granted: boolean;
+        amount?: number;
+        newWallet?: number;
+      };
+    };
+
+    if (!res.ok || !json.success) {
+      set({ hustleMessage: "Gig fell through — try again." });
+      return;
+    }
+
+    const d = json.data!;
+
+    if (!d.granted) {
+      set({ hustleMessage: "Gig fell through — try again." });
+      return;
+    }
+
+    const { vitals: v } = get();
+    set((state) => ({
+      profile: { ...state.profile, walletBalance: d.newWallet! },
+      vitals: {
+        ...state.vitals,
+        energy: Math.max(0, v.energy - 35),
+        morale: Math.max(0, v.morale - 15),
+      },
+      hustleMessage: `You earned ₦${d.amount!.toLocaleString("en-NG")} from a coding gig. 💻`,
+    }));
+
+    // TODO(time): apply the +60 game-minute sim-clock cost here once the client
+    //   sim-clock field is confirmed (deferred — do not implement now).
+
+    void get().saveToServer();
   },
 
   handleVisibilityVisible: async () => {

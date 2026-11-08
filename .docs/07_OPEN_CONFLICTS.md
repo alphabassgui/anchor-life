@@ -24,6 +24,8 @@
 | C3 | API contract department examples ("Computer Science") rejected by route's old 3-faculty check | Route now validates the real 7-faculty / department map. (Doc comment `04_API_CONTRACT.md:74` still pending — see OPEN / doc cleanups.) |
 | C4 | Route requires `assignedHostel`; contract omits it / says server assigns | Kept client-sends-`assignedHostel` + server validates against gender. Contract doc to be reconciled at next contract edit. |
 | C35 | Schema `department DEFAULT 'Computer Science'` effectively dead; column semantics muddled | Route always supplies `department` explicitly; default not relied upon. (Default left in schema; harmless.) |
+| C15 | Campus Hustler allowance: flat ₦5,000 (PRD) vs tiered ₦10k/₦5k/₦2k (Game Engine) | **Game Engine tiered rate is canonical.** Shipped in `app/api/player/allowance/route.ts` (commit `a76a68c`) with archetype-based tiers. `03_GAME_ENGINE.md` overrides the PRD flat figure. |
+| C24 | Coding-gig / assignment freelancing payout: ₦5,000 flat (PRD) vs ₦4,000–₦7,500 (Game Engine) | **Game Engine range (₦4,000–₦7,500) is canonical.** Shipped in `app/api/player/hustle/route.ts` as a server-computed random payout; `skill_coding ≥ 3.00` gate now active (`03_GAME_ENGINE.md §8.1`). `03_GAME_ENGINE.md` overrides the PRD flat figure. |
 
 ---
 
@@ -73,19 +75,9 @@ Each needs a decision IN CONTEXT. `Decision:` left blank intentionally.
 - **Blocks:** Academic mechanics + save-validation phase.
 - **Decision:**
 
-### C15 — Campus Hustler allowance: flat ₦5,000 vs tiered ₦10k/₦5k/₦2k
-- **Files:** `01_PRD.md:34` vs `03_GAME_ENGINE.md:340-344`.
-- **Blocks:** Economy / allowance phase.
-- **Decision:**
-
 ### C23 — Devotion recovery: restore-to-100 vs increments (+20/+15)
 - **Files:** `01_PRD.md:89` vs `03_GAME_ENGINE.md:113-114`.
 - **Blocks:** Chapel / devotion mechanics phase.
-- **Decision:**
-
-### C24 — Coding-gig / assignment payout: ₦5,000 flat vs ₦4,000–₦7,500
-- **Files:** `01_PRD.md:420` vs `03_GAME_ENGINE.md:354`.
-- **Blocks:** Side-hustle economy phase.
 - **Decision:**
 
 ### C8 — Community-labor duration: 10 vs 15 minutes
@@ -178,7 +170,8 @@ Each needs a decision IN CONTEXT. `Decision:` left blank intentionally.
 ---
 
 ## COUNTS (from original audit)
-- Resolved: C1, C2, C3, C4, C35 (5)
-- Open blockers-by-phase + rendering + API: ~23
+- Resolved (original audit): C1, C2, C3, C4, C35 (5)
+- Resolved since (recorded on ship): C15 (allowance tiers), C24 (freelancing payout) (2)
+- Open blockers-by-phase + rendering + API: ~21
 - Cheap doc cleanups: ~7
 - Original audit severity tally: BLOCKER 7 · MEDIUM 18 · LOW 10

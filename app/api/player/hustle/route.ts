@@ -8,6 +8,10 @@ interface StudentRow {
   wallet_balance: number;
 }
 
+interface SimSkillRow {
+  skill_coding: number;
+}
+
 // --- Helper (mirrors allowance/route.ts) ---
 
 function errorResponse(status: number, code: string, message: string): Response {
@@ -26,8 +30,7 @@ function errorResponse(status: number, code: string, message: string): Response 
 // Energy −35 and Morale −15 are client-authoritative; they are applied client-side
 // in a later task, not here.
 //
-// TODO(prereq): when the skills system lands, read skill_coding from
-//   student_simulation_states and require >= 3.00 before paying out.
+// prereq(DONE): skill_coding >= 3.00 gate is enforced below, before payout.
 // TODO(barber): add the "barber" hustle id (flat ₦2,500, owns hair_clippers,
 //   10% porter-alert risk) when inventory + SDC Heat systems exist.
 // TODO(time): the +60 game-minute sim-clock cost is applied client-side later.
@@ -73,6 +76,38 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const student = studentData as StudentRow;
+
+  // Read skill_coding — freelancing requires >= 3.00 (.docs/03_GAME_ENGINE.md §8.1).
+  const { data: simData, error: simError } = await admin
+    .from("student_simulation_states")
+    .select("skill_coding")
+    .eq("student_id", student.id)
+    .single();
+
+  if (simError || !simData) {
+    return errorResponse(
+      404,
+      "SIM_STATE_NOT_FOUND",
+      "Simulation state not found for this student.",
+    );
+  }
+
+  const sim = simData as SimSkillRow;
+
+  // Freelancing skill-gate: below 3.00 coding, reject BEFORE any payout or ledger write.
+  const REQUIRED_CODING = 3.0;
+  if (sim.skill_coding < REQUIRED_CODING) {
+    return Response.json({
+      success: true,
+      data: {
+        granted: false,
+        reason: "skill_too_low",
+        required: REQUIRED_CODING,
+        current: sim.skill_coding,
+      },
+      timestamp: Date.now(),
+    });
+  }
 
   // 5. Compute payout server-side (client must not influence this).
   //    Range: ₦4,000–₦7,500 per .docs/03_GAME_ENGINE.md §8.1.B (Assignment Freelancing).

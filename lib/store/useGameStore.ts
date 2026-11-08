@@ -364,6 +364,9 @@ export const useGameStore = create<GameStore>()((set, get) => ({
         granted: boolean;
         amount?: number;
         newWallet?: number;
+        reason?: string;
+        required?: number;
+        current?: number;
       };
     };
 
@@ -375,7 +378,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const d = json.data!;
 
     if (!d.granted) {
-      set({ hustleMessage: "Gig fell through — try again." });
+      set({
+        hustleMessage:
+          d.reason === "skill_too_low"
+            ? "Your coding isn't sharp enough yet — study more. 📚"
+            : "Gig fell through — try again.",
+      });
       return;
     }
 

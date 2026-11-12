@@ -78,6 +78,7 @@ interface GameActions {
   handleVisibilityVisible: () => Promise<void>;
   callMummy: () => Promise<void>;
   runCodingGig: () => Promise<void>;
+  buyMeal: () => Promise<void>;
   study: () => Promise<void>;
 }
 
@@ -102,6 +103,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   pendingWalletRef: null,
   allowanceMessage: null,
   hustleMessage: null,
+  mealMessage: null,
   skillCoding: 0,
   studyMessage: null,
   hoveredAction: null,
@@ -400,6 +402,57 @@ export const useGameStore = create<GameStore>()((set, get) => ({
 
     // TODO(time): apply the +60 game-minute sim-clock cost here once the client
     //   sim-clock field is confirmed (deferred — do not implement now).
+
+    void get().saveToServer();
+  },
+
+  buyMeal: async (): Promise<void> => {
+    let res: Response;
+    try {
+      res = await fetch("/api/player/spend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item: "cafeteria_meal" }),
+      });
+    } catch {
+      set({ mealMessage: "Kitchen's closed — try again." });
+      return;
+    }
+
+    const json = await res.json() as {
+      success: boolean;
+      data?: {
+        granted: boolean;
+        item?: string;
+        amount?: number;
+        newWallet?: number;
+        reason?: string;
+        required?: number;
+        current?: number;
+      };
+    };
+
+    if (!res.ok || !json.success) {
+      set({ mealMessage: "Kitchen's closed — try again." });
+      return;
+    }
+
+    const d = json.data!;
+
+    if (!d.granted) {
+      set({ mealMessage: "sapa is real 💸" });
+      return;
+    }
+
+    const { vitals } = get();
+    set((state) => ({
+      profile: { ...state.profile, walletBalance: d.newWallet! },
+      vitals: {
+        ...state.vitals,
+        hunger: Math.min(100, vitals.hunger + 80),
+      },
+      mealMessage: `Ate a cafeteria meal. 🍛`,
+    }));
 
     void get().saveToServer();
   },

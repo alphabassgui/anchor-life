@@ -78,6 +78,7 @@ export default function CampusPage() {
     activeAction,
     allowanceMessage,
     hustleMessage,
+    mealMessage,
     skillCoding,
     studyMessage,
     hydrate,
@@ -88,6 +89,7 @@ export default function CampusPage() {
     handleVisibilityVisible,
     callMummy,
     runCodingGig,
+    buyMeal,
     study,
     hoveredAction,
   } = useGameStore();
@@ -348,6 +350,16 @@ export default function CampusPage() {
               </button>
               {hustleMessage !== null && (
                 <p className="mt-1.5 text-xs text-brand-primary/70">{hustleMessage}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => { void buyMeal(); }}
+                className="mt-1.5 w-full rounded-xl bg-brand-surface px-2 py-2.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-accent active:scale-95"
+              >
+                🍛 Cafeteria Meal
+              </button>
+              {mealMessage !== null && (
+                <p className="mt-1.5 text-xs text-brand-primary/70">{mealMessage}</p>
               )}
               <button
                 type="button"

@@ -87,6 +87,7 @@ export interface GameState {
   pendingWalletRef: string | null;
   allowanceMessage: string | null;
   hustleMessage: string | null;
+  mealMessage: string | null;
   skillCoding: number;
   studyMessage: string | null;
   hoveredAction: string | null;
